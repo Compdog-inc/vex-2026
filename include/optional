@@ -1,0 +1,232 @@
+#pragma once
+
+// Minimal shim for std::optional for C++11 toolchains lacking <optional>.
+// This is NOT a full implementation and only covers basic usage patterns
+// (default construction, value presence check, access, value_or, reset, emplace).
+// If a real C++17 <optional> is available, prefer that instead.
+
+#include <utility>
+#include <type_traits>
+#include <cstdlib>
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+#include <exception>
+#endif
+
+namespace std
+{
+
+    struct nullopt_t
+    {
+        struct _tag
+        {
+        };
+        explicit constexpr nullopt_t(_tag) {}
+    };
+
+    static constexpr nullopt_t nullopt{nullopt_t::_tag{}};
+
+    // Define bad_optional_access differently depending on exception support
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+    struct bad_optional_access : public std::exception
+    {
+        const char *what() const noexcept override { return "bad optional access"; }
+    };
+#else
+    struct bad_optional_access
+    {
+        const char *what() const noexcept { return "bad optional access"; }
+    };
+#endif
+
+    inline void optional_terminate_bad_access()
+    {
+        // No exceptions available: terminate the program
+        std::terminate();
+    }
+
+    template <typename T>
+    class optional
+    {
+        bool has_;
+        typename std::aligned_storage<sizeof(T), alignof(T)>::type storage_;
+
+        T *ptr() { return reinterpret_cast<T *>(&storage_); }
+        const T *ptr() const { return reinterpret_cast<const T *>(&storage_); }
+
+    public:
+        using value_type = T;
+
+        constexpr optional() noexcept : has_(false) {}
+        constexpr optional(nullopt_t) noexcept : has_(false) {}
+
+        optional(const T &v) : has_(true) { new (&storage_) T(v); }
+        optional(T &&v) : has_(true) { new (&storage_) T(std::move(v)); }
+
+        optional(const optional &other) : has_(other.has_)
+        {
+            if (has_)
+                new (&storage_) T(*other.ptr());
+        }
+        optional(optional &&other) noexcept(std::is_nothrow_move_constructible<T>::value)
+            : has_(other.has_)
+        {
+            if (has_)
+                new (&storage_) T(std::move(*other.ptr()));
+            other.reset();
+        }
+
+        ~optional() { reset(); }
+
+        optional &operator=(nullopt_t) noexcept
+        {
+            reset();
+            return *this;
+        }
+
+        optional &operator=(const optional &other)
+        {
+            if (this == &other)
+                return *this;
+            if (other.has_)
+            {
+                if (has_)
+                {
+                    **this = *other;
+                }
+                else
+                {
+                    emplace(*other);
+                }
+            }
+            else
+            {
+                reset();
+            }
+            return *this;
+        }
+
+        optional &operator=(optional &&other)
+        {
+            if (this == &other)
+                return *this;
+            if (other.has_)
+            {
+                if (has_)
+                {
+                    **this = std::move(*other);
+                }
+                else
+                {
+                    emplace(std::move(*other));
+                }
+                other.reset();
+            }
+            else
+            {
+                reset();
+            }
+            return *this;
+        }
+
+        template <class... Args>
+        T &emplace(Args &&...args)
+        {
+            reset();
+            new (&storage_) T(std::forward<Args>(args)...);
+            has_ = true;
+            return *ptr();
+        }
+
+        void reset()
+        {
+            if (has_)
+            {
+                ptr()->~T();
+                has_ = false;
+            }
+        }
+
+        constexpr bool has_value() const noexcept { return has_; }
+        constexpr explicit operator bool() const noexcept { return has_; }
+
+        T &value()
+        {
+            if (!has_)
+            {
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+                throw bad_optional_access();
+#else
+                optional_terminate_bad_access();
+#endif
+            }
+            return *ptr();
+        }
+        const T &value() const
+        {
+            if (!has_)
+            {
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+                throw bad_optional_access();
+#else
+                optional_terminate_bad_access();
+#endif
+            }
+            return *ptr();
+        }
+
+        template <class U>
+        T value_or(U &&default_value) const
+        {
+            return has_ ? *ptr() : static_cast<T>(std::forward<U>(default_value));
+        }
+
+        T &operator*() { return *ptr(); }
+        const T &operator*() const { return *ptr(); }
+
+        T *operator->() { return ptr(); }
+        const T *operator->() const { return ptr(); }
+    };
+
+    // Comparison operators between optional<T> and T
+    template <typename T>
+    constexpr bool operator==(const optional<T> &o, const T &v)
+    {
+        return o.has_value() && (*o == v);
+    }
+
+    template <typename T>
+    constexpr bool operator==(const T &v, const optional<T> &o)
+    {
+        return o == v;
+    }
+
+    template <typename T>
+    constexpr bool operator!=(const optional<T> &o, const T &v)
+    {
+        return !(o == v);
+    }
+
+    template <typename T>
+    constexpr bool operator!=(const T &v, const optional<T> &o)
+    {
+        return !(o == v);
+    }
+
+    // Comparison operators between optional<T> and optional<T>
+    template <typename T>
+    constexpr bool operator==(const optional<T> &lhs, const optional<T> &rhs)
+    {
+        if (lhs.has_value() != rhs.has_value())
+        {
+            return false;
+        }
+        return lhs.has_value() ? (*lhs == *rhs) : true;
+    }
+
+    template <typename T>
+    constexpr bool operator!=(const optional<T> &lhs, const optional<T> &rhs)
+    {
+        return !(lhs == rhs);
+    }
+
+} // namespace std
