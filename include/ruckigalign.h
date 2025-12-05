@@ -158,4 +158,4 @@ private:
     static constexpr double ROTATIONAL_VELOCITY_TOLERANCE = MathUtil::toRadians(5); // Radians/s
 };
 
-#endif // RUCKIGCONTROLLER_H
+#endif // RUCKIGALIGN_H
