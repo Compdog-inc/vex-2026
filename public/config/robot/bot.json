@@ -1,0 +1,14 @@
+{
+    "name": "Derek's Robot",
+    "widthMeters": 0.4572,
+    "heightMeters": 0.4572,
+    "topLeft": [
+        0,
+        0
+    ],
+    "bottomRight": [
+        100,
+        100
+    ],
+    "image": "bot.webp"
+}

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>VEX Telemetry Dashboard</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+		<link rel="stylesheet" href="./assets/styles.css" />
+	</head>
+	<body>
+		<header class="app-header">
+			<div class="brand">
+				<span class="logo" aria-hidden="true">⌁</span>
+				<h1>VEX Telemetry</h1>
+			</div>
+			<div class="connection">
+				<span id="conn-status" class="badge badge-off">Disconnected</span>
+				<button id="reconnect" class="btn" aria-label="Reconnect">Reconnect</button>
+				<label class="kbd-toggle">
+					<input id="kb-toggle" type="checkbox" />
+					<span>Keyboard Control</span>
+				</label>
+			</div>
+		</header>
+
+		<main class="container">
+            <section aria-labelledby="field-title" class="field-panel">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 id="field-title">Field</h2>
+                        <div class="panel-actions">
+                            <label class="mono">Field: <select id="field-select"></select></label>
+                            <label class="mono">Robot: <select id="robot-select"></select></label>
+                        </div>
+                    </div>
+                    <div class="field-container">
+                        <div class="field-stage">
+                            <img id="field-image" alt="Field" />
+                            <canvas id="robot-canvas"></canvas>
+                        </div>
+                        <div class="pose-readout mono" aria-live="polite">Pose: <span id="pose-text">x=0.00 m, y=0.00 m, rot=0.00 rad</span></div>
+                    </div>
+                </div>
+			</section>
+            
+			<section aria-labelledby="controller-title" class="panel telemetry-panel">
+				<div class="panel-header">
+					<h2 id="controller-title">Controller</h2>
+				</div>
+				<div class="controller-grid">
+					<div class="axes">
+						<div class="axis" data-axis="Axis1">
+							<div class="meter drag" title="Drag to set Axis 1">
+								<div class="meter-fill meter-left" style="width:0%"></div>
+								<div class="meter-fill meter-right" style="width:0%"></div>
+							</div>
+							<div class="axis-label">Axis 1</div>
+							<div class="axis-value" aria-live="polite">0%</div>
+						</div>
+						<div class="axis" data-axis="Axis2">
+							<div class="meter drag" title="Drag to set Axis 2">
+								<div class="meter-fill meter-left" style="width:0%"></div>
+								<div class="meter-fill meter-right" style="width:0%"></div>
+							</div>
+							<div class="axis-label">Axis 2</div>
+							<div class="axis-value" aria-live="polite">0%</div>
+						</div>
+						<div class="axis" data-axis="Axis3">
+							<div class="meter drag" title="Drag to set Axis 3">
+								<div class="meter-fill meter-left" style="width:0%"></div>
+								<div class="meter-fill meter-right" style="width:0%"></div>
+							</div>
+							<div class="axis-label">Axis 3</div>
+							<div class="axis-value" aria-live="polite">0%</div>
+						</div>
+						<div class="axis" data-axis="Axis4">
+							<div class="meter drag" title="Drag to set Axis 4">
+								<div class="meter-fill meter-left" style="width:0%"></div>
+								<div class="meter-fill meter-right" style="width:0%"></div>
+							</div>
+							<div class="axis-label">Axis 4</div>
+							<div class="axis-value" aria-live="polite">0%</div>
+						</div>
+					</div>
+					<div class="buttons">
+						<button class="pad" data-button="Up" aria-pressed="false" title="D-Pad Up">↑</button>
+						<button class="pad" data-button="Left" aria-pressed="false" title="D-Pad Left">←</button>
+						<button class="pad" data-button="Right" aria-pressed="false" title="D-Pad Right">→</button>
+						<button class="pad" data-button="Down" aria-pressed="false" title="D-Pad Down">↓</button>
+						<button class="btn key" data-button="A" aria-pressed="false" title="Button A">A</button>
+						<button class="btn key" data-button="B" aria-pressed="false" title="Button B">B</button>
+						<button class="btn key" data-button="X" aria-pressed="false" title="Button X">X</button>
+						<button class="btn key" data-button="Y" aria-pressed="false" title="Button Y">Y</button>
+					</div>
+				</div>
+			</section>
+
+			<section aria-labelledby="motors-title" class="panel telemetry-panel">
+				<div class="panel-header">
+					<h2 id="motors-title">Motors</h2>
+					<div class="panel-actions">
+						<span class="mono">Active: <span id="motor-count">0</span></span>
+					</div>
+				</div>
+				<div id="motors" class="cards"></div>
+			</section>
+
+			<section aria-labelledby="system-title" class="panel telemetry-panel">
+				<div class="panel-header">
+					<h2 id="system-title">System</h2>
+				</div>
+				<div class="system-grid">
+					<div class="stat">
+						<div class="stat-label">RSS Memory</div>
+						<div class="progress">
+							<div id="rss-bar" class="progress-bar" style="width:0%"></div>
+						</div>
+						<div class="stat-value"><span id="rss-text">—</span></div>
+					</div>
+					<div class="stat">
+						<div class="stat-label">Telemetry</div>
+						<canvas id="telemetry-rate" height="60" aria-label="Telemetry update rate chart"></canvas>
+						<div class="stat-value"><span id="rate-text">— fps</span></div>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<footer class="app-footer">
+			<span class="mono">WebSocket: <code id="ws-url">auto</code></span>
+			<span class="mono">Last update: <span id="last-update">—</span></span>
+		</footer>
+
+		<script type="module" src="./assets/app.js"></script>
+	</body>
+</html>

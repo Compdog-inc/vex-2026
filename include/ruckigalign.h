@@ -14,13 +14,6 @@ enum class RobotControlMode
     Combined
 };
 
-enum class WaypointMode
-{
-    FullStop,
-    LinearVelocity,
-    LinearAcceleration
-};
-
 enum class AlignMode
 {
     Position, // Full stop at target
@@ -50,9 +43,9 @@ typedef struct RuckigAlignState
 class RuckigAlign : public Command
 {
 public:
-    RuckigAlign(const std::function<KinematicState()> &currentStateSupplier,
-                const std::function<RuckigAlignState()> &targetStateSupplier,
-                const std::function<void(const ChassisSpeeds &speeds)> &robotRelativeDriveConsumer,
+    RuckigAlign(std::function<KinematicState()> currentStateSupplier,
+                std::function<RuckigAlignState()> targetStateSupplier,
+                std::function<void(const ChassisSpeeds &speeds)> robotRelativeDriveConsumer,
                 bool resetTrajectory);
 
     static std::array<double, 3> getCurrentNewPosition();
@@ -122,7 +115,6 @@ private:
         DeceleratingState::NOT_DECELERATING};
 
     RobotControlMode control_mode = RobotControlMode::Combined;
-    WaypointMode waypoint_mode = WaypointMode::LinearAcceleration;
 
     std::function<KinematicState()> currentStateSupplier;
     std::function<RuckigAlignState()> targetStateSupplier;
@@ -130,6 +122,7 @@ private:
 
     bool resetTrajectory;
 
+public:
     static constexpr double VELOCITY_TOLERANCE_MULTIPLIER = 5.0;
     static constexpr double VELOCITY_MODE_DISTANCE_TO_TARGET_THRESHOLD = 0.05; // meters
     // slightly larger threshold to avoid deceleration oscillation
@@ -156,6 +149,203 @@ private:
     static constexpr double TRANSLATIONAL_VELOCITY_TOLERANCE = 0.05;                // Meters/s
     static constexpr double ROTATIONAL_TOLERANCE = MathUtil::toRadians(1);          // Radians
     static constexpr double ROTATIONAL_VELOCITY_TOLERANCE = MathUtil::toRadians(5); // Radians/s
+};
+
+template <typename T>
+class RuckigAlignGroup
+{
+public:
+    /**
+     * Create a RuckigAlignGroup
+     */
+    RuckigAlignGroup(std::function<KinematicState()> currentStateSupplier,
+                     std::function<void(const ChassisSpeeds &speeds)> defaultRobotRelativeDriveConsumer,
+                     Subsystem *requirementSubsystem)
+        : currentStateSupplier(std::move(currentStateSupplier)),
+          defaultRobotRelativeDriveConsumer(std::move(defaultRobotRelativeDriveConsumer)),
+          requirementSubsystem(requirementSubsystem)
+    {
+    }
+
+    /**
+     * Start a new group of align states (used for splitting the group command into multiple)
+     * @return this (for chaining)
+     */
+    RuckigAlignGroup<T> &newGroup()
+    {
+        return newGroup(defaultRobotRelativeDriveConsumer);
+    }
+
+    /**
+     * Start a new group of align states (used for splitting the group command into multiple)
+     * @param controlModifier the control modifier to use for this group
+     * @return this (for chaining)
+     */
+    RuckigAlignGroup<T> &newGroup(std::function<void(const ChassisSpeeds &speeds)> robotRelativeDriveConsumer)
+    {
+        Group group;
+        group.startIndex = states.size();
+        group.robotRelativeDriveConsumer = robotRelativeDriveConsumer;
+        groups.push_back(group);
+        return *this;
+    }
+
+    /**
+     * Add an align state to the group
+     * @param initializer Function to initialize any parameters needed for the state
+     * @param state Function to get the RuckigAlignState from the parameters
+     * @param timeout Timeout for this align state
+     * @return this (for chaining)
+     */
+    RuckigAlignGroup<T> &addAlign(std::function<T()> initializer,
+                                  std::function<RuckigAlignState(const T &)> state,
+                                  double timeout)
+    {
+        AlignEntry entry;
+        entry.initializer = initializer;
+        entry.state = state;
+        entry.timeout = timeout;
+        states.push_back(entry);
+        return *this;
+    }
+
+    std::function<KinematicState()> getCurrentStateSupplier() const
+    {
+        return currentStateSupplier;
+    }
+
+    /**
+     * Build the RuckigAlign command sequence for all groups
+     * @return the command sequence
+     */
+    Command *build()
+    {
+        return build(0, groups.size() - 1);
+    }
+
+    /**
+     * Build the RuckigAlign command sequence for a specific group
+     * @param group the group index
+     * @return the command sequence
+     */
+    Command *build(int group)
+    {
+        return build(group, group);
+    }
+
+    /**
+     * Build the RuckigAlign command sequence for a range of groups
+     * @param startGroup the starting group index (inclusive)
+     * @param endGroup the ending group index (inclusive)
+     * @return the command sequence
+     */
+    Command *build(int startGroup, int endGroup)
+    {
+        if (groups.empty())
+        {
+            return build({});
+        }
+
+        std::vector<int> indices;
+        for (int g = startGroup; g <= endGroup; g++)
+        {
+            indices.push_back(g);
+        }
+
+        return build(indices);
+    }
+
+    /**
+     * Build the RuckigAlign command sequence for a range of groups
+     * @param groupIds the group indices to include
+     * @return the command sequence
+     */
+    Command *build(const std::vector<int> &groupIds)
+    {
+        if (states.empty())
+            return Commands::none();
+
+        std::vector<Command *> commands;
+
+        if (groups.empty())
+        {
+            // If no groups were defined, treat all states as a single group
+            addStateCommands(defaultRobotRelativeDriveConsumer, 0, states.size(), commands);
+        }
+        else
+        {
+            for (int group : groupIds)
+            {
+                if (group < 0 || group >= groups.size())
+                {
+                    return nullptr;
+                }
+
+                int startIndex = groups[group].startIndex;
+                int endIndex = (group + 1 < groups.size()) ? groups[group + 1].startIndex : states.size();
+                addStateCommands(groups[group].robotRelativeDriveConsumer, startIndex, endIndex, commands);
+            }
+        }
+
+        return Commands::sequence(commands);
+    }
+
+private:
+    typedef struct AlignEntry
+    {
+        std::function<T()> initializer;
+        std::function<RuckigAlignState(const T &)> state;
+        double timeout;
+    } AlignEntry;
+
+    typedef struct Group
+    {
+        int startIndex;
+        std::function<void(const ChassisSpeeds &speeds)> robotRelativeDriveConsumer;
+    } Group;
+
+    /**
+     * Add states from startIndex (inclusive) to endIndex (exclusive) to the commands list
+     * @param controlModifier the control modifier to use for these states
+     * @param startIndex the starting state index (inclusive)
+     * @param endIndex the ending state index (exclusive)
+     * @param commands the list to add the commands to
+     */
+    void addStateCommands(std::function<void(const ChassisSpeeds &speeds)> robotRelativeDriveConsumer, int startIndex, int endIndex, std::vector<Command *> &commands)
+    {
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            const int index = i;
+            const AlignEntry entryCopy = states[index];
+            const std::function<KinematicState()> currentStateSupplierCopy = this->currentStateSupplier;
+
+            commands.push_back(Commands::defer(
+                                   [currentStateSupplierCopy, entryCopy, robotRelativeDriveConsumer, index]()
+                                   {
+                                       const T param = entryCopy.initializer();
+                                       RuckigAlign *align = new RuckigAlign(
+                                           currentStateSupplierCopy,
+                                           [entryCopy, param]()
+                                           {
+                                               return entryCopy.state(param);
+                                           },
+                                           robotRelativeDriveConsumer,
+                                           index == 0);
+                                       align->setOnHeap(true);
+                                       return align;
+                                   },
+                                   {requirementSubsystem})
+                                   ->withTimeout(entryCopy.timeout));
+        }
+    }
+
+    std::vector<AlignEntry> states;
+    std::vector<Group> groups;
+
+    std::function<KinematicState()> currentStateSupplier;
+    std::function<void(const ChassisSpeeds &speeds)> defaultRobotRelativeDriveConsumer;
+
+    Subsystem *requirementSubsystem;
 };
 
 #endif // RUCKIGALIGN_H

@@ -1,8 +1,11 @@
 #pragma once
 
-// Wrapper around <string> that provides std::to_string shims for C++11
-// toolchains that lack these overloads. Enabled when VEX_ADD_TO_STRING_SHIM is defined.
+// Wrapper around <string> that provides std::to_string shims for old toolchains.
+// In host/macOS builds (VEX not defined), defer to the standard <string> without shims.
 
+#if !defined(VEX)
+#include_next <string>
+#else
 #include_next <string>
 #include <sstream>
 
@@ -66,4 +69,5 @@ namespace std
     }
 
 } // namespace std
+#endif
 #endif

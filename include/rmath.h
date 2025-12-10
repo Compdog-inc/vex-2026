@@ -171,6 +171,9 @@ typedef struct Pose2d
 
     Pose2d transformBy(const Transform2d &other) const;
     Pose2d relativeTo(const Pose2d &other) const;
+
+    Pose2d operator+(const Transform2d &other) const;
+    Transform2d operator-(const Pose2d &other) const;
 } Pose2d;
 
 typedef struct ChassisSpeeds

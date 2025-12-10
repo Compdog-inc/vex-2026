@@ -1,9 +1,11 @@
 #pragma once
 
 // Minimal shim for std::optional for C++11 toolchains lacking <optional>.
-// This is NOT a full implementation and only covers basic usage patterns
-// (default construction, value presence check, access, value_or, reset, emplace).
-// If a real C++17 <optional> is available, prefer that instead.
+// In host/macOS builds (VEX not defined), defer to the standard <optional>.
+
+#if !defined(VEX)
+#include_next <optional>
+#else
 
 #include <utility>
 #include <type_traits>
@@ -230,3 +232,5 @@ namespace std
     }
 
 } // namespace std
+
+#endif // !VEX

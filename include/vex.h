@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <functional>
 
 #include "v5.h"
 #include "v5_vcs.h"
@@ -17,5 +18,7 @@
 
 #define repeat(iterations) \
   for (int iterator = 0; iterator < iterations; iterator++)
+
+#include "panic.h"
 
 #endif // VEX_H

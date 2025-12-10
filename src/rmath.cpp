@@ -148,6 +148,17 @@ Pose2d Pose2d::relativeTo(const Pose2d &other) const
     return Pose2d{transform.translation, transform.rotation};
 }
 
+Pose2d Pose2d::operator+(const Transform2d &other) const
+{
+    return transformBy(other);
+}
+
+Transform2d Pose2d::operator-(const Pose2d &other) const
+{
+    Pose2d pose = this->relativeTo(other);
+    return Transform2d{pose.translation, pose.rotation};
+}
+
 const Pose2d Pose2d::kZero = {Translation2d{0.0, 0.0}, Rotation2d{0.0}};
 
 /**

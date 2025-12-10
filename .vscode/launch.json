@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug 2025_Control (CodeLLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/2025_Control",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "cmake: build"
+    },
+    {
+      "name": "Debug 2025_Control (CodeLLDB, Integrated Terminal)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/2025_Control",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "terminal": "integrated",
+      "preLaunchTask": "cmake: build"
+    }
+  ]
+}

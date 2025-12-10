@@ -14,13 +14,13 @@ static PIDController rPid{4.0, 0.0, 0.2, PERIOD};
 
 static bool lastAlignSuccessful = false;
 
-RuckigAlign::RuckigAlign(const std::function<KinematicState()> &currentStateSupplier,
-                         const std::function<RuckigAlignState()> &targetStateSupplier,
-                         const std::function<void(const ChassisSpeeds &speeds)> &robotRelativeDriveConsumer,
+RuckigAlign::RuckigAlign(std::function<KinematicState()> currentStateSupplier,
+                         std::function<RuckigAlignState()> targetStateSupplier,
+                         std::function<void(const ChassisSpeeds &speeds)> robotRelativeDriveConsumer,
                          bool resetTrajectory)
-    : currentStateSupplier(currentStateSupplier),
-      targetStateSupplier(targetStateSupplier),
-      robotRelativeDriveConsumer(robotRelativeDriveConsumer),
+    : currentStateSupplier(std::move(currentStateSupplier)),
+      targetStateSupplier(std::move(targetStateSupplier)),
+      robotRelativeDriveConsumer(std::move(robotRelativeDriveConsumer)),
       resetTrajectory(resetTrajectory)
 {
     maxVelocity = {MAX_VELOCITY, MAX_VELOCITY, MAX_ANGULAR_VELOCITY};
