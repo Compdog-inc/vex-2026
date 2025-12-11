@@ -18,9 +18,10 @@
 			<div class="connection">
 				<span id="conn-status" class="badge badge-off">Disconnected</span>
 				<button id="reconnect" class="btn" aria-label="Reconnect">Reconnect</button>
-				<label class="kbd-toggle">
+				<label class="kbd-toggle" aria-label="Keyboard Control">
 					<input id="kb-toggle" type="checkbox" />
-					<span>Keyboard Control</span>
+					<span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+					<span class="toggle-text">Keyboard Control</span>
 				</label>
 			</div>
 		</header>
@@ -33,13 +34,19 @@
                         <div class="panel-actions">
                             <label class="mono">Field: <select id="field-select"></select></label>
                             <label class="mono">Robot: <select id="robot-select"></select></label>
+							<div class="split-toggle" aria-label="Alliance">
+								<button id="alliance-blue" class="btn split left" aria-pressed="true" title="Blue Alliance">Blue</button>
+								<button id="alliance-red" class="btn split right" aria-pressed="false" title="Red Alliance">Red</button>
+							</div>
                         </div>
                     </div>
-                    <div class="field-container">
-                        <div class="field-stage">
-                            <img id="field-image" alt="Field" />
-                            <canvas id="robot-canvas"></canvas>
-                        </div>
+					<div class="field-container">
+						<div id="field-stage" class="field-stage">
+							<div id="field-rotator" class="field-rotator">
+								<img id="field-image" alt="Field" />
+								<canvas id="robot-canvas"></canvas>
+							</div>
+						</div>
                         <div class="pose-readout mono" aria-live="polite">Pose: <span id="pose-text">x=0.00 m, y=0.00 m, rot=0.00 rad</span></div>
                     </div>
                 </div>
@@ -118,6 +125,15 @@
 							<div id="rss-bar" class="progress-bar" style="width:0%"></div>
 						</div>
 						<div class="stat-value"><span id="rss-text">—</span></div>
+					</div>
+					<div class="stat">
+						<div class="stat-label">Virtual Memory</div>
+						<div class="stat-value"><span id="virtual-text">—</span></div>
+					</div>
+					<div class="stat">
+						<div class="stat-label">Loop Time</div>
+						<canvas id="loop-time" height="60" aria-label="Control loop time chart"></canvas>
+						<div class="stat-value"><span id="loop-text">— µs</span></div>
 					</div>
 					<div class="stat">
 						<div class="stat-label">Telemetry</div>

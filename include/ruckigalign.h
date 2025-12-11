@@ -124,10 +124,10 @@ private:
 
 public:
     static constexpr double VELOCITY_TOLERANCE_MULTIPLIER = 5.0;
-    static constexpr double VELOCITY_MODE_DISTANCE_TO_TARGET_THRESHOLD = 0.05; // meters
+    static constexpr double VELOCITY_MODE_DISTANCE_TO_TARGET_THRESHOLD = 0.1; // meters
     // slightly larger threshold to avoid deceleration oscillation
-    static constexpr double VELOCITY_MODE_DISTANCE_TO_TARGET_THRESHOLD_BYPASS = 0.08; // meters
-    static constexpr double VELOCITY_MODE_BYPASS_VELOCITY_ERROR_THRESHOLD = 1.0;      // m/s
+    static constexpr double VELOCITY_MODE_DISTANCE_TO_TARGET_THRESHOLD_BYPASS = 0.15; // meters
+    static constexpr double VELOCITY_MODE_BYPASS_VELOCITY_ERROR_THRESHOLD = 0.45;     // m/s
 
     static constexpr double DECELERATION_ACCEL_THRESHOLD = 0.9; // meters/s^2
 

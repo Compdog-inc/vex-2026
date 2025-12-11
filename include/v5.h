@@ -6,6 +6,7 @@
 #define V5_H
 
 #include <functional>
+#include <chrono>
 
 #define M_PI 3.14159265358979323846
 #define M_TWOPI 6.28318530717958647692
@@ -32,7 +33,7 @@ namespace vex
         double time(timeUnits units);
 
     private:
-        unsigned long startTime = 0;
+        std::chrono::steady_clock::time_point startTime{std::chrono::steady_clock::now()};
     } timer;
 
     enum direction
@@ -151,6 +152,7 @@ namespace vex
 };
 
 void postTelemetry(const std::string &path, double value);
+int getSimulationAlliance();
 
 #endif
 

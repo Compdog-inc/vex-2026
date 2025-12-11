@@ -138,30 +138,26 @@ std::vector<std::pair<std::string, double>> getAllTelemetryValues()
 
 void vex::timer::reset()
 {
-    startTime = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::steady_clock::now().time_since_epoch())
-                    .count();
+    startTime = std::chrono::steady_clock::now();
 }
 
 double vex::timer::time(vex::timeUnits units)
 {
-    unsigned long currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                    std::chrono::steady_clock::now().time_since_epoch())
-                                    .count();
-    unsigned long elapsedMillis = currentTime - startTime;
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = now - startTime;
 
     switch (units)
     {
     case vex::msec:
-        return static_cast<double>(elapsedMillis);
+        return std::chrono::duration<double, std::milli>(elapsed).count();
     case vex::sec:
-        return static_cast<double>(elapsedMillis) / 1000.0;
+        return std::chrono::duration<double>(elapsed).count();
     case vex::min:
-        return static_cast<double>(elapsedMillis) / (1000.0 * 60.0);
+        return std::chrono::duration<double, std::ratio<60>>(elapsed).count();
     case vex::hour:
-        return static_cast<double>(elapsedMillis) / (1000.0 * 3600.0);
+        return std::chrono::duration<double, std::ratio<3600>>(elapsed).count();
     default:
-        return static_cast<double>(elapsedMillis);
+        return std::chrono::duration<double, std::milli>(elapsed).count();
     }
 }
 
@@ -1163,6 +1159,7 @@ static void memoryTelemetryThread()
             // resident_size is physical memory, virtual_size is total virtual
             const double toMB = 1024.0 * 1024.0;
             postTelemetry("system/memory/rss_mb", static_cast<double>(info.resident_size) / toMB);
+            postTelemetry("system/memory/rss_limit_mb", static_cast<double>(RSS_MEMORY_CAP) / toMB);
             postTelemetry("system/memory/virtual_mb", static_cast<double>(info.virtual_size) / toMB);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -1506,6 +1503,11 @@ void vex::competition::drivercontrol(void (*drivercontrolFunction)())
         std::thread watchdogThread(memoryCapWatchdogThread, capBytes);
         watchdogThread.detach();
     }
+}
+
+int getSimulationAlliance()
+{
+    return 0;
 }
 
 #endif

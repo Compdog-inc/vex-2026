@@ -33,9 +33,11 @@ void Drivetrain::periodic()
 {
     xdrive.update(0.01);
 
+#ifndef VEX
     postTelemetry("drivetrain/pose/x", xdrive.getPose().translation.x);
     postTelemetry("drivetrain/pose/y", xdrive.getPose().translation.y);
     postTelemetry("drivetrain/pose/rotation", xdrive.getPose().rotation.value);
+#endif
 
     xdrive.drive(targetSpeeds, 0.01);
 }

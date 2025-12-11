@@ -76,7 +76,7 @@ std::array<double, 3> WaypointAlign::calculateVelocity(
     double dist = hypot(dx, dy);
     if (dist > 1e-6)
     {
-        double maxV = hypot(maxVelocity[0], maxVelocity[1]);
+        double maxV = fmin(maxVelocity[0], maxVelocity[1]);
         if (fabs(dr) > 1e-6)
         {
             maxV /= fabs(dr);
@@ -93,8 +93,8 @@ std::array<double, 3> WaypointAlign::calculateVelocity(
         dy = 0.0;
     }
 
-    dx *= 1.05;
-    dy *= 1.05;
+    dx *= 0.85;
+    dy *= 0.85;
 
     return {dx, dy, dr};
 }
@@ -106,7 +106,7 @@ std::array<double, 3> WaypointAlign::calculateAcceleration(double dnx, double dn
 
     if (distA > 1e-6)
     {
-        double maxA = hypot(maxAcceleration[0], maxAcceleration[1]);
+        double maxA = fmin(maxAcceleration[0], maxAcceleration[1]);
         if (fabs(dnr) > 1e-6)
         {
             maxA /= fabs(dnr);
@@ -122,6 +122,9 @@ std::array<double, 3> WaypointAlign::calculateAcceleration(double dnx, double dn
         dnx = 0.0;
         dny = 0.0;
     }
+
+    dnx *= 0.85;
+    dny *= 0.85;
 
     return {dnx, dny, dnr};
 }

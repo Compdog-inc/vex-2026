@@ -1,0 +1,14 @@
+{
+    "name": "Space",
+    "widthMeters": 6.566922,
+    "heightMeters": 6.566414,
+    "topLeft": [
+        500,
+        500
+    ],
+    "bottomRight": [
+        900,
+        900
+    ],
+    "image": "vex.png"
+}

@@ -22,10 +22,17 @@ const els = {
   motors: document.getElementById('motors'),
   rssBar: document.getElementById('rss-bar'),
   rssText: document.getElementById('rss-text'),
+  virtualText: document.getElementById('virtual-text'),
   rateText: document.getElementById('rate-text'),
   rateCanvas: document.getElementById('telemetry-rate'),
+  loopText: document.getElementById('loop-text'),
+  loopCanvas: document.getElementById('loop-time'),
   fieldSelect: document.getElementById('field-select'),
   robotSelect: document.getElementById('robot-select'),
+  allianceBlue: document.getElementById('alliance-blue'),
+  allianceRed: document.getElementById('alliance-red'),
+  fieldStage: document.getElementById('field-stage'),
+  fieldRotator: document.getElementById('field-rotator'),
   fieldImage: document.getElementById('field-image'),
   robotCanvas: document.getElementById('robot-canvas'),
   poseText: document.getElementById('pose-text'),
@@ -63,6 +70,7 @@ class Sparkline {
   }
 }
 const rateSpark = new Sparkline(els.rateCanvas);
+const loopSpark = els.loopCanvas ? new Sparkline(els.loopCanvas) : null;
 
 // State
 let ws; let lastTickTime = 0; let fpsCounter = { count: 0, windowStart: performance.now() };
@@ -72,6 +80,7 @@ let pose = { x: 0, y: 0, rot: 0 };
 let fieldConfig = null; let robotConfig = null;
 let robotImg = null; // Image for robot rendering
 let configs = { fields: [], robots: [] };
+let alliance = 'blue'; // 'blue' or 'red'
 
 function setConnected(on) {
   els.connStatus.textContent = on ? 'Connected' : 'Disconnected';
@@ -150,12 +159,25 @@ function updateButtons(map) {
 }
 
 function updateSystem(map) {
-  const rss = Number(map['memory/rss_bytes'] ?? map['host/rss_bytes'] ?? 0);
-  const cap = Number(map['memory/cap_bytes'] ?? map['host/cap_bytes'] ?? (15 * 1024 * 1024));
+  const rss = Number(map['system/memory/rss_mb'] ?? 0) * 1024 * 1024;
+  const cap = Number(map['system/memory/rss_limit_mb'] ?? 15) * 1024 * 1024;
   if (rss) {
     const pct = Math.max(0, Math.min(100, cap ? (rss / cap) * 100 : 0));
-    els.rssBar.style.width = `${pct.toFixed(1)}%`;
+    // Progress bar now covers the UNFILLED portion to keep gradient relative
+    els.rssBar.style.width = `${(100 - pct).toFixed(1)}%`;
     els.rssText.textContent = `${formatBytes(rss)} / ${formatBytes(cap)}`;
+  }
+  // Virtual memory (no limit): show value label only
+  const virt = Number(map['system/memory/virtual_mb'] ?? 0) * 1024 * 1024;
+  if (els.virtualText) {
+    els.virtualText.textContent = virt ? `${formatBytes(virt)}` : '—';
+  }
+  // Loop time input is ms (fractional); display and chart in µs
+  const loopMs = Number(map['system/loop_time_ms']);
+  if (!Number.isNaN(loopMs)) {
+    const loopUs = loopMs * 1000;
+    if (els.loopText) els.loopText.textContent = `${loopUs.toFixed(0)} µs`;
+    loopSpark?.push(loopUs);
   }
 }
 
@@ -218,7 +240,8 @@ function drawRobot() {
   // Draw robot image centered and rotated CCW
   ctx.translate(x, y);
   // Telemetry rotation is CW-positive; canvas expects CCW-positive
-  ctx.rotate(-pose.rot);
+  // At rotation 0, robot image top should face +X (right): rotate additional -90°
+  ctx.rotate(-pose.rot + Math.PI/2);
   if (robotImg && robotImg.complete) {
     // Preserve aspect ratio of the robot image while fitting into robotPxW x robotPxH
     const rW = robotImg.naturalWidth || robotImg.width;
@@ -247,9 +270,15 @@ async function loadConfig(url) {
 
 async function setupFieldConfigs() {
   try {
-    const field = await loadConfig('./config/field/vex.json');
-    const robot = await loadConfig('./config/robot/bot.json');
-    configs.fields = [field]; configs.robots = [robot];
+    configs.fields = [
+      await loadConfig('./config/field/vex.json'),
+      await loadConfig('./config/field/space.json')
+    ];
+
+    configs.robots = [
+      await loadConfig('./config/robot/bot.json')
+    ];
+
     // Populate selects by name
     els.fieldSelect.innerHTML = configs.fields.map((f,i)=>`<option value="${i}">${f.name}</option>`).join('');
     els.robotSelect.innerHTML = configs.robots.map((r,i)=>`<option value="${i}">${r.name}</option>`).join('');
@@ -350,6 +379,21 @@ els.reconnect.addEventListener('click', connect);
 els.kbToggle?.addEventListener('change', (e) => {
   keyboardEnabled = !!e.target.checked;
 });
+// Alliance picker
+function setAlliance(value) {
+  alliance = value === 'red' ? 'red' : 'blue';
+  if (els.allianceBlue && els.allianceRed) {
+    els.allianceBlue.setAttribute('aria-pressed', alliance === 'blue' ? 'true' : 'false');
+    els.allianceRed.setAttribute('aria-pressed', alliance === 'red' ? 'true' : 'false');
+  }
+  if (els.fieldRotator) {
+    // Rotate only the inner field layer: Blue -> +90deg (CW), Red -> -90deg (CCW)
+    const deg = alliance === 'blue' ? 90 : -90;
+    els.fieldRotator.style.transform = `rotate(${deg}deg)`;
+  }
+}
+els.allianceBlue?.addEventListener('click', () => setAlliance('blue'));
+els.allianceRed?.addEventListener('click', () => setAlliance('red'));
 
 // Send helpers
 function sendAxisUpdate(index, valuePct) {
@@ -460,4 +504,8 @@ function setupKeyboard() {
   setupButtons();
   setupKeyboard();
   setupFieldConfigs();
+  // Initialize alliance rotation
+  // Set to red without animation, then enable transitions
+  setAlliance('red');
+  els.fieldRotator?.classList.add('ready');
 })();

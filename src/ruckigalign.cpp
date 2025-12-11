@@ -88,6 +88,11 @@ void RuckigAlign::execute()
 
     result = ruckigInstance.update(input, output);
 
+    if (result != Result::Working && result != Result::Finished)
+    {
+        printf("RuckigAlign error: %d\n", static_cast<int>(result));
+    }
+
     KinematicState currentState = currentStateSupplier();
 
     for (int i = 0; i < isDecelerating.size(); i++)

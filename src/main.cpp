@@ -98,6 +98,14 @@ double xTarget = 0.0;
 double yTarget = 0.0;
 double angleTarget = 0.0;
 
+std::vector<Pose2d> waypoints = {
+    Pose2d{Translation2d{0, 1.9812}, Rotation2d{0}},
+    Pose2d{Translation2d{0, 4.826}, Rotation2d{0}},
+    Pose2d{Translation2d{-3.0988, 4.826}, Rotation2d{0}},
+    Pose2d{Translation2d{-3.0988, 6.985}, Rotation2d{0}},
+    Pose2d{Translation2d{0, 6.985}, Rotation2d{0}},
+    Pose2d{Translation2d{-3.0988, 1.9812}, Rotation2d{0}}};
+
 void robotInit(void)
 {
   RuckigAlign::setup();
@@ -116,12 +124,17 @@ void robotInit(void)
                           {
                             Command *alignCommand = WaypointAlign::alignWithCommand(
                               {
-                                Pose2d{Translation2d{0, 0}, Rotation2d{0}},
-                                 Pose2d{Translation2d{1, 0}, Rotation2d{0}},
-                                  Pose2d{Translation2d{1, 1}, Rotation2d{0}},
-                                   Pose2d{Translation2d{0, 1}, Rotation2d{0}},
-                                    Pose2d{Translation2d{0.5, 0.5}, Rotation2d{0}}},
-                                     {10.0, 10.0, 10.0, 10.0, 10.0}, 
+                                waypoints[0],
+                                waypoints[1],
+                                waypoints[2],
+                                waypoints[3],
+                                waypoints[4],
+                                waypoints[1],
+                                waypoints[2],
+                                waypoints[5],
+                                waypoints[0]
+                              },
+                                     {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0}, 
                                      -1, 0, Commands::none(), [&](const ChassisSpeeds &speeds)
                                                                                     { 
                                                                                       drivetrain.drive(speeds); 
@@ -172,6 +185,11 @@ void usercontrol(void)
     CommandScheduler::getInstance()->run();
 
     double elapsed = periodicTimer.time(vex::timeUnits::msec);
+
+#ifndef VEX
+    postTelemetry("system/loop_time_ms", elapsed);
+#endif
+
     if (elapsed < 10)
     {
       vex::wait(10 - elapsed, vex::timeUnits::msec);
