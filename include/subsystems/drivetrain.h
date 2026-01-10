@@ -8,12 +8,21 @@
 class Drivetrain : public Subsystem
 {
 public:
-    Drivetrain();
+    Drivetrain(vex::inertial &gyro, vex::gps *gps, const Pose2d &initialPose);
 
     void drive(const ChassisSpeeds &robotRelativeSpeeds);
     void periodic();
 
-    XDrive<4> *getXDrive();
+    Pose2d getPose();
+
+    void resetPose(const Pose2d &newPose);
+
+    void setRotationOrigin(const Translation2d &origin);
+
+    Translation2d getRotationOrigin();
+
+    ChassisSpeeds getChassisSpeeds();
+    ChassisSpeeds getChassisAcceleration();
 
     static constexpr double TRACK_WIDTH = 0.3429;  // meters
     static constexpr double TRACK_LENGTH = 0.3429; // meters
@@ -25,6 +34,7 @@ public:
 private:
     ChassisSpeeds targetSpeeds;
     XDrive<4> xdrive;
+    vex::gps *gps;
 };
 
 #endif

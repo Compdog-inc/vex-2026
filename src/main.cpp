@@ -2,7 +2,9 @@
 #include "ruckigalign.h"
 #include "commandscheduler.h"
 #include "subsystems/drivetrain.h"
+#include "subsystems/intake.h"
 #include "manualdrive.h"
+#include "manualintake.h"
 #include "waypointalign.h"
 
 vex::competition competition;
@@ -88,37 +90,66 @@ void panic(const char *file, int line, const char *messageFormat, ...)
   }
 }
 
+vex::inertial gyro = vex::inertial(vex::PORT7);
+vex::gps gps = vex::gps(vex::PORT20, 0.0, 0.0, vex::distanceUnits::mm, 180.0);
+
+Drivetrain *drivetrain;
+Intake *intake;
+
 // Subsystems
-Drivetrain drivetrain = Drivetrain();
+void createSubsystems()
+{
+  vex::wait(10, vex::timeUnits::msec);
 
-// Commands
-ManualDrive manualDrive = ManualDrive(&gamepad, &drivetrain);
+  if (gyro.installed())
+  {
+    gyro.calibrate();
+  }
 
-double xTarget = 0.0;
-double yTarget = 0.0;
-double angleTarget = 0.0;
+  if (gps.installed())
+  {
+    gps.calibrate();
+  }
+
+  while ((gyro.installed() && gyro.isCalibrating()) ||
+         (gps.installed() && gps.isCalibrating()))
+  {
+    vex::wait(10, vex::timeUnits::msec);
+  }
+
+  drivetrain = new Drivetrain(gyro, &gps, Pose2d::kZero);
+  intake = new Intake();
+}
 
 std::vector<Pose2d> waypoints = {
     Pose2d{Translation2d{0, 1.9812}, Rotation2d{0}},
     Pose2d{Translation2d{0, 4.826}, Rotation2d{0}},
-    Pose2d{Translation2d{-3.0988, 4.826}, Rotation2d{0}},
+    Pose2d{Translation2d{-3.0988, 4.826 + 0.254 + 0.127}, Rotation2d{0}},
     Pose2d{Translation2d{-3.0988, 6.985}, Rotation2d{0}},
     Pose2d{Translation2d{0, 6.985}, Rotation2d{0}},
-    Pose2d{Translation2d{-3.0988, 1.9812}, Rotation2d{0}}};
+    Pose2d{Translation2d{-3.0988, 1.9812}, Rotation2d{0}},
+    Pose2d{Translation2d{-3.0988, 4.826}, Rotation2d{0}},
+};
 
 void robotInit(void)
 {
+  createSubsystems();
+
   RuckigAlign::setup();
 
-  drivetrain.setDefaultCommand(&manualDrive);
+  // Commands
+  ManualDrive *manualDrive = new ManualDrive(&gamepad, drivetrain);
+  ManualIntake *manualIntake = new ManualIntake(&gamepad, intake);
+  manualDrive->setOnHeap(true);
+  manualIntake->setOnHeap(true);
+
+  drivetrain->setDefaultCommand(manualDrive);
+  intake->setDefaultCommand(manualIntake);
 
   gamepad.ButtonA.pressed([]()
                           {
-    drivetrain.getXDrive()->resetPose(Pose2d{drivetrain.getXDrive()->getPose().translation, Rotation2d{0.0}});
-    drivetrain.getXDrive()->setRotationOrigin(Translation2d{0.0, 0.0}); });
-
-  gamepad.ButtonB.pressed([]()
-                          { manualDrive.rotationOriginMode = !manualDrive.rotationOriginMode; });
+    drivetrain->resetPose(Pose2d{drivetrain->getPose().translation, Rotation2d{0.0}});
+    drivetrain->setRotationOrigin(Translation2d{0.0, 0.0}); });
 
   gamepad.ButtonX.pressed([]()
                           {
@@ -130,44 +161,21 @@ void robotInit(void)
                                 waypoints[3],
                                 waypoints[4],
                                 waypoints[1],
-                                waypoints[2],
+                                waypoints[6],
                                 waypoints[5],
                                 waypoints[0]
                               },
                                      {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0}, 
                                      -1, 0, Commands::none(), [&](const ChassisSpeeds &speeds)
                                                                                     { 
-                                                                                      drivetrain.drive(speeds); 
+                                                                                      drivetrain->drive(speeds); 
                                                                                     }, []()
                                                                                     {
-                                                                                      return RuckigAlign::toKinematicState(drivetrain.getXDrive()->getPose(), drivetrain.getXDrive()->getChassisSpeeds(), drivetrain.getXDrive()->getChassisAcceleration());
-                                                                                      }, &drivetrain);
-                            alignCommand->addRequirement(&drivetrain);
+                                                                                      return RuckigAlign::toKinematicState(drivetrain->getPose(), drivetrain->getChassisSpeeds(), drivetrain->getChassisAcceleration());
+                                                                                      }, drivetrain);
+                            alignCommand->addRequirement(drivetrain);
                             alignCommand->setOnHeap(true);
                             CommandScheduler::getInstance()->schedule(alignCommand); });
-
-  gamepad.ButtonUp.pressed([]()
-                           { 
-                            xTarget = -1.0;
-                            yTarget = 1.0;
-                            angleTarget = -M_PI / 2; });
-  gamepad.ButtonDown.pressed([]()
-                             { 
-                            xTarget = 1.0;
-                            yTarget = -1.0;
-                            angleTarget = M_PI / 2; });
-
-  gamepad.ButtonRight.pressed([]()
-                              { 
-                              xTarget = -1.0;
-                              yTarget = -1.0;
-                              angleTarget = -M_PI; });
-
-  gamepad.ButtonLeft.pressed([]()
-                             { 
-                              xTarget = 1.0;
-                              yTarget = 1.0;
-                              angleTarget = M_PI; });
 }
 
 void autonomous(void)

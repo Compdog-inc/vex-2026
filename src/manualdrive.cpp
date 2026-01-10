@@ -16,15 +16,15 @@ void ManualDrive::execute()
 
     if (rotationOriginMode)
     {
-        Translation2d origin = drivetrain->getXDrive()->getRotationOrigin();
+        Translation2d origin = drivetrain->getRotationOrigin();
 
         origin = origin + Translation2d{
                               gamepad->Axis4.position(vex::percentUnits::pct) / 100.0 * 0.01, // x
                               gamepad->Axis3.position(vex::percentUnits::pct) / 100.0 * 0.01  // y
                           }
-                              .rotateBy(drivetrain->getXDrive()->getPose().rotation);
+                              .rotateBy(drivetrain->getPose().rotation);
 
-        drivetrain->getXDrive()->setRotationOrigin(origin);
+        drivetrain->setRotationOrigin(origin);
 
         speeds = ChassisSpeeds{
             0,                                                                                       // vx
@@ -43,7 +43,7 @@ void ManualDrive::execute()
 
     drivetrain->drive(ChassisSpeeds::fromFieldRelativeSpeeds(
         speeds,
-        drivetrain->getXDrive()->getPose().rotation));
+        drivetrain->getPose().rotation));
 }
 
 bool ManualDrive::isFinished()

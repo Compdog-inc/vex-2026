@@ -19,6 +19,8 @@ const els = {
   wsUrlText: document.getElementById('ws-url'),
   lastUpdate: document.getElementById('last-update'),
   motorCount: document.getElementById('motor-count'),
+  sensorCount: document.getElementById('sensor-count'),
+  sensors: document.getElementById('sensors'),
   motors: document.getElementById('motors'),
   rssBar: document.getElementById('rss-bar'),
   rssText: document.getElementById('rss-text'),
@@ -75,6 +77,7 @@ const loopSpark = els.loopCanvas ? new Sparkline(els.loopCanvas) : null;
 // State
 let ws; let lastTickTime = 0; let fpsCounter = { count: 0, windowStart: performance.now() };
 const motorCards = new Map(); // key: port -> elements
+const sensorCards = new Map(); // key: port -> elements
 let keyboardEnabled = false;
 let pose = { x: 0, y: 0, rot: 0 };
 let fieldConfig = null; let robotConfig = null;
@@ -116,6 +119,29 @@ function createMotorCard(port) {
   });
 }
 
+function createSensorCard(port) {
+  const card = document.createElement('div'); card.className = 'card'; card.dataset.port = String(port);
+  card.innerHTML = `
+    <div class="title"><div>GPS <strong>#${port}</strong></div></div>
+    <div class="sub">X (m): <span class="mono" data-role="x">—</span></div>
+    <div class="sub">Y (m): <span class="mono" data-role="y">—</span></div>
+    <div class="sub">Heading (rad): <span class="mono" data-role="heading">—</span></div>
+    <div class="sub">Quality: <span class="mono" data-role="quality">—</span></div>
+    <div class="sub">Timestamp: <span class="mono" data-role="timestamp">—</span></div>
+    <div class="sub">Calibrating: <span class="mono" data-role="calibrating">No</span></div>
+  `;
+  els.sensors.appendChild(card);
+  sensorCards.set(port, {
+    root: card,
+    x: card.querySelector('[data-role="x"]'),
+    y: card.querySelector('[data-role="y"]'),
+    heading: card.querySelector('[data-role="heading"]'),
+    quality: card.querySelector('[data-role="quality"]'),
+    timestamp: card.querySelector('[data-role="timestamp"]'),
+    calibrating: card.querySelector('[data-role="calibrating"]'),
+  });
+}
+
 function updateMotor(port, velocity, position) {
   if (!motorCards.has(port)) createMotorCard(port);
   const ui = motorCards.get(port);
@@ -131,6 +157,17 @@ function updateMotor(port, velocity, position) {
     ui.posRight.style.width = `${pct}%`;
     ui.posLeft.style.width = `0%`;
   }
+}
+
+function updateSensor(port, x, y, heading, quality, calibrating, timestamp) {
+  if (!sensorCards.has(port)) createSensorCard(port);
+  const ui = sensorCards.get(port);
+  ui.x.textContent = x !== undefined ? Number(x).toFixed(3) : '—';
+  ui.y.textContent = y !== undefined ? Number(y).toFixed(3) : '—';
+  ui.heading.textContent = heading !== undefined ? Number(heading).toFixed(2) : '—';
+  ui.quality.textContent = quality !== undefined ? String(quality) : '—';
+  ui.calibrating.textContent = calibrating ? 'Yes' : 'No';
+  ui.timestamp.textContent = timestamp !== undefined ? String(timestamp) : '—';
 }
 
 function updateAxes(map) {
@@ -184,6 +221,11 @@ function updateSystem(map) {
 function updateMotorCount(map) {
   const cnt = Number(map['counters/motor'] ?? 0);
   els.motorCount.textContent = String(cnt);
+}
+
+function updateSensorCount(map) {
+  const cnt = Number(map['counters/gps'] ?? 0) + Number(map['counters/inertial'] ?? 0);
+  els.sensorCount.textContent = String(cnt);
 }
 
 function updatePose(map) {
@@ -329,6 +371,7 @@ function handleTelemetry(map) {
   updateButtons(map);
   updateSystem(map);
   updateMotorCount(map);
+  updateSensorCount(map);
   updatePose(map);
 
   // Motors: detect keys like motor/{port}/velocity, position
@@ -341,6 +384,21 @@ function handleTelemetry(map) {
       const velocityKey = `motor/${port}/velocity`;
       const positionKey = `motor/${port}/position`;
       updateMotor(port, Number(map[velocityKey] ?? (type==='velocity'? v: 0)), Number(map[positionKey] ?? (type==='position'? v: 0)));
+    } else if(k.startsWith('gps/')) {
+      const port = k.split('/')[1];
+      const x = map[`gps/${port}/x`];
+      const y = map[`gps/${port}/y`];
+      const heading = map[`gps/${port}/heading`];
+      const quality = map[`gps/${port}/quality`];
+      const calibrating = map[`gps/${port}/calibrating`];
+      const timestamp = map[`gps/${port}/timestamp`];
+      updateSensor(port, x, y, heading, quality, calibrating, timestamp);
+    } else if (k.startsWith('inertial/')) {
+      const port = k.split('/')[1];
+      const yaw = map[`inertial/${port}/yaw`];
+      const calibrating = map[`inertial/${port}/calibrating`];
+      const timestamp = map[`inertial/${port}/timestamp`];
+      updateSensor(port, undefined, undefined, yaw, undefined, calibrating, timestamp);
     }
   });
 }

@@ -92,6 +92,10 @@
 						</div>
 					</div>
 					<div class="buttons">
+						<button class="btn key" data-button="L1" aria-pressed="false" title="Button L1">L1</button>
+						<button class="btn key" data-button="L2" aria-pressed="false" title="Button L2">L2</button>
+						<button class="btn key" data-button="R1" aria-pressed="false" title="Button R1">R1</button>
+						<button class="btn key" data-button="R2" aria-pressed="false" title="Button R2">R2</button>
 						<button class="pad" data-button="Up" aria-pressed="false" title="D-Pad Up">↑</button>
 						<button class="pad" data-button="Left" aria-pressed="false" title="D-Pad Left">←</button>
 						<button class="pad" data-button="Right" aria-pressed="false" title="D-Pad Right">→</button>
@@ -112,6 +116,16 @@
 					</div>
 				</div>
 				<div id="motors" class="cards"></div>
+			</section>
+
+			<section aria-labelledby="sensors-title" class="panel telemetry-panel">
+				<div class="panel-header">
+					<h2 id="sensors-title">Sensors</h2>
+					<div class="panel-actions">
+						<span class="mono">Active: <span id="sensor-count">0</span></span>
+					</div>
+				</div>
+				<div id="sensors" class="cards"></div>
 			</section>
 
 			<section aria-labelledby="system-title" class="panel telemetry-panel">

@@ -161,6 +161,14 @@ double vex::timer::time(vex::timeUnits units)
     }
 }
 
+double vex::timer::systemHighResolution()
+{
+    static auto systemStartTime = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = now - systemStartTime;
+    return std::chrono::duration<double, std::milli>(elapsed).count();
+}
+
 vex::motor::motor(int port, enum gearSetting gearSetting) : port(port),
                                                             gearSetting(gearSetting)
 {
@@ -274,6 +282,151 @@ double vex::motor::position(rotationUnits units)
     return currentPosition;
 }
 
+vex::inertial::inertial(int port) : port(port)
+{
+    atomicIncrementTelemetry("counters/inertial", 1);
+    postTelemetry("inertial/" + std::to_string(port) + "/calibrating", 0.0);
+    postTelemetry("inertial/" + std::to_string(port) + "/installed", 1.0);
+    postTelemetry("inertial/" + std::to_string(port) + "/yaw", 0.0);
+
+    registerSimulation([this, port]()
+                       { 
+        // Simulate yaw changes if needed
+        postTelemetry("inertial/" + std::to_string(port) + "/yaw", this->yawVal);
+        if(calibrating)
+        {
+            double elapsedSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - calibrationStartTime).count();
+            if(elapsedSeconds >= 1.5){ // assume calibration takes 1.5 seconds
+                calibrating = false;
+                postTelemetry("inertial/" + std::to_string(port) + "/calibrating", 0.0);
+            }
+        } });
+}
+
+void vex::inertial::calibrate()
+{
+    calibrating = true;
+    calibrationStartTime = std::chrono::steady_clock::now();
+    postTelemetry("inertial/" + std::to_string(port) + "/calibrating", 1.0);
+}
+
+bool vex::inertial::isCalibrating()
+{
+    return calibrating;
+}
+
+bool vex::inertial::installed()
+{
+    return true;
+}
+
+double vex::inertial::yaw(rotationUnits units)
+{
+    return yawVal;
+}
+
+vex::gps::gps(int port, double ox, double oy, distanceUnits distUnits, double oheading) : port(port)
+{
+    atomicIncrementTelemetry("counters/gps", 1);
+    postTelemetry("gps/" + std::to_string(port) + "/calibrating", 0.0);
+    postTelemetry("gps/" + std::to_string(port) + "/installed", 1.0);
+    postTelemetry("gps/" + std::to_string(port) + "/x", 0.0);
+    postTelemetry("gps/" + std::to_string(port) + "/y", 0.0);
+    postTelemetry("gps/" + std::to_string(port) + "/heading", 0.0);
+    postTelemetry("gps/" + std::to_string(port) + "/quality", 0.0);
+    postTelemetry("gps/" + std::to_string(port) + "/timestamp", 0.0);
+
+    registerSimulation([this, port]()
+                       {
+                           // Simulate yaw changes if needed
+                           postTelemetry("gps/" + std::to_string(port) + "/x", this->x);
+                           postTelemetry("gps/" + std::to_string(port) + "/y", this->y);
+                           postTelemetry("gps/" + std::to_string(port) + "/heading", this->headingVal);
+                           postTelemetry("gps/" + std::to_string(port) + "/quality", this->qualityVal);
+                           postTelemetry("gps/" + std::to_string(port) + "/timestamp", this->timestampVal);
+
+                           if (calibrating)
+                           {
+                               double elapsedSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - calibrationStartTime).count();
+                               if (elapsedSeconds >= 2.5)
+                               { // assume calibration takes 2.5 seconds
+                                   calibrating = false;
+                                   postTelemetry("gps/" + std::to_string(port) + "/calibrating", 0.0);
+                               }
+                           }
+
+                           if (installed())
+                           {
+                               const double UPDATE_INTERVAL = 10.2; // seconds
+                               double elapsedSinceLastUpdate = std::chrono::duration<double>(std::chrono::steady_clock::now() - lastUpdateTime).count();
+                               if (elapsedSinceLastUpdate >= UPDATE_INTERVAL)
+                               {
+                                   lastUpdateTime = std::chrono::steady_clock::now();
+                                   // Simulate GPS quality and timestamp updates
+                                   qualityVal = 100;                                          // fixed quality for simulation
+                                   timestampVal = static_cast<int>(vex::timer::systemHighResolution());
+                               }
+                           } });
+}
+
+void vex::gps::setLocation(double x, double y, distanceUnits distUnits, double heading, rotationUnits rotUnits)
+{
+    x = x;
+    y = y;
+    headingVal = heading;
+    postTelemetry("gps/" + std::to_string(port) + "/x", x);
+    postTelemetry("gps/" + std::to_string(port) + "/y", y);
+    postTelemetry("gps/" + std::to_string(port) + "/heading", headingVal);
+}
+
+double vex::gps::xPosition(distanceUnits units)
+{
+    return x;
+}
+
+double vex::gps::yPosition(distanceUnits units)
+{
+    return y;
+}
+
+double vex::gps::heading(rotationUnits units)
+{
+    return headingVal;
+}
+
+void vex::gps::setHeading(double heading, rotationUnits units)
+{
+    headingVal = heading;
+    postTelemetry("gps/" + std::to_string(port) + "/heading", headingVal);
+}
+
+int vex::gps::quality()
+{
+    return qualityVal;
+}
+
+int vex::gps::timestamp()
+{
+    return timestampVal;
+}
+
+bool vex::gps::isCalibrating()
+{
+    return calibrating;
+}
+
+void vex::gps::calibrate()
+{
+    calibrating = true;
+    calibrationStartTime = std::chrono::steady_clock::now();
+    postTelemetry("gps/" + std::to_string(port) + "/calibrating", 1.0);
+}
+
+bool vex::gps::installed()
+{
+    return true;
+}
+
 void vex::wait(int time, timeUnits units)
 {
     unsigned long waitMillis = 0;
@@ -343,7 +496,11 @@ static void setSharedAxisPct(int idx, double pct)
 
 static bool &sharedButtonValue(int buttonIndex)
 {
-    static bool buttons[8] = {
+    static bool buttons[12] = {
+        false,
+        false,
+        false,
+        false,
         false,
         false,
         false,
@@ -353,7 +510,7 @@ static bool &sharedButtonValue(int buttonIndex)
         false,
         false};
 
-    if (buttonIndex >= 1 && buttonIndex <= 8)
+    if (buttonIndex >= 1 && buttonIndex <= 12)
         return buttons[buttonIndex - 1];
 
     static bool dummy = 0;
@@ -445,10 +602,18 @@ static void processIncomingPacket(const std::string &json)
                 return 7;
             if (n == "Y")
                 return 8;
+            if (n == "L1")
+                return 9;
+            if (n == "L2")
+                return 10;
+            if (n == "R1")
+                return 11;
+            if (n == "R2")
+                return 12;
             return 0;
         };
         int idx = toIndex(name);
-        if (idx >= 1 && idx <= 8)
+        if (idx >= 1 && idx <= 12)
         {
             if (pressed)
                 triggerSharedButton(idx);
@@ -477,6 +642,10 @@ vex::controller::controller(controllerType type)
         this->ButtonB.isPressed = sharedButtonValue(6);
         this->ButtonX.isPressed = sharedButtonValue(7);
         this->ButtonY.isPressed = sharedButtonValue(8);
+        this->ButtonL1.isPressed = sharedButtonValue(9);
+        this->ButtonL2.isPressed = sharedButtonValue(10);
+        this->ButtonR1.isPressed = sharedButtonValue(11);
+        this->ButtonR2.isPressed = sharedButtonValue(12);
 
         if (this->ButtonUp.isPressed && !this->ButtonUp.lastPressed)
         {
@@ -526,6 +695,30 @@ vex::controller::controller(controllerType type)
                 this->ButtonY.onPressed();
             atomicIncrementTelemetry("controller/ButtonY", 1);
         }
+        if (this->ButtonL1.isPressed && !this->ButtonL1.lastPressed)
+        {
+            if(this->ButtonL1.onPressed)
+                this->ButtonL1.onPressed();
+            atomicIncrementTelemetry("controller/ButtonL1", 1);
+        }
+        if (this->ButtonL2.isPressed && !this->ButtonL2.lastPressed)
+        {
+            if(this->ButtonL2.onPressed)
+                this->ButtonL2.onPressed();
+            atomicIncrementTelemetry("controller/ButtonL2", 1);
+        }
+        if (this->ButtonR1.isPressed && !this->ButtonR1.lastPressed)
+        {
+            if(this->ButtonR1.onPressed)
+                this->ButtonR1.onPressed();
+            atomicIncrementTelemetry("controller/ButtonR1", 1);
+        }
+        if (this->ButtonR2.isPressed && !this->ButtonR2.lastPressed)
+        {
+            if(this->ButtonR2.onPressed)
+                this->ButtonR2.onPressed();
+            atomicIncrementTelemetry("controller/ButtonR2", 1);
+        }
 
         this->ButtonUp.lastPressed = this->ButtonUp.isPressed;
         this->ButtonDown.lastPressed = this->ButtonDown.isPressed;
@@ -535,6 +728,10 @@ vex::controller::controller(controllerType type)
         this->ButtonB.lastPressed = this->ButtonB.isPressed;
         this->ButtonX.lastPressed = this->ButtonX.isPressed;
         this->ButtonY.lastPressed = this->ButtonY.isPressed;
+        this->ButtonL1.lastPressed = this->ButtonL1.isPressed;
+        this->ButtonL2.lastPressed = this->ButtonL2.isPressed;
+        this->ButtonR1.lastPressed = this->ButtonR1.isPressed;
+        this->ButtonR2.lastPressed = this->ButtonR2.isPressed;
 
         // Telemtry
         postTelemetry("controller/Axis1", this->Axis1.valuePct);
@@ -546,6 +743,11 @@ vex::controller::controller(controllerType type)
 double vex::controller::Axis::position(percentUnits units)
 {
     return valuePct;
+}
+
+bool vex::controller::Button::pressing()
+{
+    return isPressed;
 }
 
 void vex::controller::Button::pressed(void (*function)())

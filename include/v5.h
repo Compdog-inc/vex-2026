@@ -32,6 +32,8 @@ namespace vex
         void reset();
         double time(timeUnits units);
 
+        static double systemHighResolution();
+
     private:
         std::chrono::steady_clock::time_point startTime{std::chrono::steady_clock::now()};
     } timer;
@@ -56,6 +58,13 @@ namespace vex
     {
         deg = 0,
         rev = 1
+    };
+
+    enum distanceUnits
+    {
+        mm = 0,
+        cm = 1,
+        in = 3
     };
 
     enum percentUnits
@@ -123,7 +132,19 @@ namespace vex
             bool lastPressed = false;
             void (*onPressed)() = nullptr;
             void pressed(void (*function)());
-        } ButtonUp, ButtonDown, ButtonLeft, ButtonRight, ButtonA, ButtonB, ButtonX, ButtonY;
+            bool pressing();
+        } ButtonL1,
+            ButtonL2,
+            ButtonR1,
+            ButtonR2,
+            ButtonUp,
+            ButtonDown,
+            ButtonLeft,
+            ButtonRight,
+            ButtonX,
+            ButtonB,
+            ButtonY,
+            ButtonA;
 
         struct Axis
         {
@@ -147,8 +168,66 @@ namespace vex
         PORT5 = 5,
         PORT6 = 6,
         PORT7 = 7,
-        PORT8 = 8
+        PORT8 = 8,
+        PORT9 = 9,
+        PORT10 = 10,
+        PORT11 = 11,
+        PORT12 = 12,
+        PORT13 = 13,
+        PORT14 = 14,
+        PORT15 = 15,
+        PORT16 = 16,
+        PORT17 = 17,
+        PORT18 = 18,
+        PORT19 = 19,
+        PORT20 = 20,
+        PORT21 = 21,
+        PORT22 = 22
     };
+
+    typedef struct inertial
+    {
+        inertial(int port);
+        void calibrate();
+        bool isCalibrating();
+        bool installed();
+        double yaw(rotationUnits units);
+
+    private:
+        int port;
+        bool calibrating = false;
+        double yawVal = 0;
+
+        std::chrono::steady_clock::time_point calibrationStartTime{std::chrono::steady_clock::now()};
+    } inertial;
+
+    typedef struct gps
+    {
+        gps(int port, double ox, double oy, distanceUnits distUnits, double oheading);
+        void setLocation(double x, double y, distanceUnits distUnits, double heading, rotationUnits rotUnits);
+        double xPosition(distanceUnits units);
+        double yPosition(distanceUnits units);
+        double heading(rotationUnits units);
+        void setHeading(double heading, rotationUnits units);
+        int quality();
+        int timestamp();
+
+        void calibrate();
+        bool installed();
+        bool isCalibrating();
+
+    private:
+        int port;
+        double x = 0;
+        double y = 0;
+        double headingVal = 0;
+        int qualityVal = 0;
+        int timestampVal = 0;
+        bool calibrating = false;
+
+        std::chrono::steady_clock::time_point calibrationStartTime{std::chrono::steady_clock::now()};
+        std::chrono::steady_clock::time_point lastUpdateTime{std::chrono::steady_clock::now()};
+    } gps;
 };
 
 void postTelemetry(const std::string &path, double value);
