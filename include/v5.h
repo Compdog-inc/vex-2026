@@ -192,11 +192,13 @@ namespace vex
         bool isCalibrating();
         bool installed();
         double yaw(rotationUnits units);
+        int timestamp();
 
     private:
         int port;
         bool calibrating = false;
         double yawVal = 0;
+        int timestampVal = 0;
 
         std::chrono::steady_clock::time_point calibrationStartTime{std::chrono::steady_clock::now()};
     } inertial;
@@ -218,6 +220,8 @@ namespace vex
 
     private:
         int port;
+        double rx = 0;
+        double ry = 0;
         double x = 0;
         double y = 0;
         double headingVal = 0;
@@ -231,6 +235,7 @@ namespace vex
 };
 
 void postTelemetry(const std::string &path, double value);
+void postDrivetrainVelocity(double vx, double vy, double omega);
 int getSimulationAlliance();
 
 #endif

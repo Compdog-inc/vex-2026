@@ -40,9 +40,9 @@ void Drivetrain::periodic()
     int quality = gps->quality();
     if (quality > 90)
     {
-        // Map quality 100-90 to stdDev 0.65-1.5 meters
-        double stdDevMin = 0.65;
-        double stdDevMax = 1.5;
+        // Map quality 100-90 to stdDev 2.5-3.5 meters
+        double stdDevMin = 2.5;
+        double stdDevMax = 3.5;
         double stdDev = stdDevMax - (quality - 90) * (stdDevMax - stdDevMin) / 10.0;
 
         xdrive.addVisionMeasurement(
@@ -59,6 +59,9 @@ void Drivetrain::periodic()
     postTelemetry("drivetrain/pose/x", xdrive.getPose().translation.x);
     postTelemetry("drivetrain/pose/y", xdrive.getPose().translation.y);
     postTelemetry("drivetrain/pose/rotation", xdrive.getPose().rotation.value);
+
+    ChassisSpeeds speeds = ChassisSpeeds::fromRobotRelativeSpeeds(getChassisSpeeds(), xdrive.getPose().rotation);
+    postDrivetrainVelocity(speeds.vx, speeds.vy, speeds.omega);
 #endif
 
     xdrive.drive(targetSpeeds, 0.01);

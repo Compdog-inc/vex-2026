@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <random>
 #if defined(__APPLE__)
 #include <sys/resource.h>
 #if __has_include(<mach/mach.h>)
@@ -31,6 +32,10 @@
 #ifndef RSS_MEMORY_CAP
 #define RSS_MEMORY_CAP (15ULL * 1024ULL * 1024ULL)
 #endif
+
+static double robotXVelocity = 0.0;
+static double robotYVelocity = 0.0;
+static double robotOmegaVelocity = 0.0;
 
 static std::vector<vex::SimulationRegistration> &getSimulationTicks()
 {
@@ -89,6 +94,13 @@ void postTelemetry(const std::string &path, double value)
 {
     std::lock_guard<std::mutex> lock(getTelemetryMapMutex());
     getTelemetryMap()[path] = value;
+}
+
+void postDrivetrainVelocity(double vx, double vy, double omega)
+{
+    robotXVelocity = vx;
+    robotYVelocity = vy;
+    robotOmegaVelocity = omega;
 }
 
 bool queryTelemetry(const std::string &path, double *outValue)
@@ -288,11 +300,17 @@ vex::inertial::inertial(int port) : port(port)
     postTelemetry("inertial/" + std::to_string(port) + "/calibrating", 0.0);
     postTelemetry("inertial/" + std::to_string(port) + "/installed", 1.0);
     postTelemetry("inertial/" + std::to_string(port) + "/yaw", 0.0);
+    postTelemetry("inertial/" + std::to_string(port) + "/timestamp", 0.0);
 
     registerSimulation([this, port]()
                        { 
         // Simulate yaw changes if needed
+        yawVal += robotOmegaVelocity * SIM_DELTA_TIME;
+
         postTelemetry("inertial/" + std::to_string(port) + "/yaw", this->yawVal);
+
+        postTelemetry("inertial/" + std::to_string(port) + "/timestamp", this->timestampVal);
+
         if(calibrating)
         {
             double elapsedSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - calibrationStartTime).count();
@@ -300,7 +318,9 @@ vex::inertial::inertial(int port) : port(port)
                 calibrating = false;
                 postTelemetry("inertial/" + std::to_string(port) + "/calibrating", 0.0);
             }
-        } });
+        } 
+    
+        timestampVal = static_cast<int>(vex::timer::systemHighResolution()); });
 }
 
 void vex::inertial::calibrate()
@@ -322,7 +342,19 @@ bool vex::inertial::installed()
 
 double vex::inertial::yaw(rotationUnits units)
 {
-    return yawVal;
+    return yawVal * (units == vex::deg ? 180.0 / M_PI : 1.0 / (2.0 * M_PI));
+}
+
+int vex::inertial::timestamp()
+{
+    return timestampVal;
+}
+
+double gaussianRandom(double mean, double stddev)
+{
+    static thread_local std::mt19937 generator(std::random_device{}());
+    std::normal_distribution<double> distribution(mean, stddev);
+    return distribution(generator);
 }
 
 vex::gps::gps(int port, double ox, double oy, distanceUnits distUnits, double oheading) : port(port)
@@ -338,6 +370,9 @@ vex::gps::gps(int port, double ox, double oy, distanceUnits distUnits, double oh
 
     registerSimulation([this, port]()
                        {
+                        rx += robotXVelocity * SIM_DELTA_TIME;
+                        ry += robotYVelocity * SIM_DELTA_TIME;
+
                            // Simulate yaw changes if needed
                            postTelemetry("gps/" + std::to_string(port) + "/x", this->x);
                            postTelemetry("gps/" + std::to_string(port) + "/y", this->y);
@@ -357,13 +392,22 @@ vex::gps::gps(int port, double ox, double oy, distanceUnits distUnits, double oh
 
                            if (installed())
                            {
-                               const double UPDATE_INTERVAL = 10.2; // seconds
+                               const double UPDATE_INTERVAL = 1.0 / 8.0; // 8 FPS
                                double elapsedSinceLastUpdate = std::chrono::duration<double>(std::chrono::steady_clock::now() - lastUpdateTime).count();
                                if (elapsedSinceLastUpdate >= UPDATE_INTERVAL)
                                {
+                                double nx = rx;
+                                double ny = ry;
+
+                                      nx += gaussianRandom(0.0, 0.02); // add some noise
+                                      ny += gaussianRandom(0.0, 0.02); // add some noise
+
+                                      this->x = nx;
+                                        this->y = ny;
+
                                    lastUpdateTime = std::chrono::steady_clock::now();
                                    // Simulate GPS quality and timestamp updates
-                                   qualityVal = 100;                                          // fixed quality for simulation
+                                   qualityVal = 95;                                          // fixed quality for simulation
                                    timestampVal = static_cast<int>(vex::timer::systemHighResolution());
                                }
                            } });
@@ -371,9 +415,9 @@ vex::gps::gps(int port, double ox, double oy, distanceUnits distUnits, double oh
 
 void vex::gps::setLocation(double x, double y, distanceUnits distUnits, double heading, rotationUnits rotUnits)
 {
-    x = x;
-    y = y;
-    headingVal = heading;
+    rx = x = x;
+    ry = y = y;
+    headingVal = heading / (rotUnits == vex::deg ? 180.0 / M_PI : 1.0 / (2.0 * M_PI));
     postTelemetry("gps/" + std::to_string(port) + "/x", x);
     postTelemetry("gps/" + std::to_string(port) + "/y", y);
     postTelemetry("gps/" + std::to_string(port) + "/heading", headingVal);
@@ -381,22 +425,24 @@ void vex::gps::setLocation(double x, double y, distanceUnits distUnits, double h
 
 double vex::gps::xPosition(distanceUnits units)
 {
-    return x;
+    return x * (units == vex::mm ? 1000.0 : units == vex::cm ? 100.0
+                                                             : 39.37);
 }
 
 double vex::gps::yPosition(distanceUnits units)
 {
-    return y;
+    return y * (units == vex::mm ? 1000.0 : units == vex::cm ? 100.0
+                                                             : 39.37);
 }
 
 double vex::gps::heading(rotationUnits units)
 {
-    return headingVal;
+    return headingVal * (units == vex::deg ? 180.0 / M_PI : 1.0 / (2.0 * M_PI));
 }
 
 void vex::gps::setHeading(double heading, rotationUnits units)
 {
-    headingVal = heading;
+    headingVal = heading / (units == vex::deg ? 180.0 / M_PI : 1.0 / (2.0 * M_PI));
     postTelemetry("gps/" + std::to_string(port) + "/heading", headingVal);
 }
 

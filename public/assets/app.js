@@ -119,10 +119,10 @@ function createMotorCard(port) {
   });
 }
 
-function createSensorCard(port) {
+function createSensorCard(type, port) {
   const card = document.createElement('div'); card.className = 'card'; card.dataset.port = String(port);
   card.innerHTML = `
-    <div class="title"><div>GPS <strong>#${port}</strong></div></div>
+    <div class="title"><div>${type.toUpperCase()} <strong>#${port}</strong></div></div>
     <div class="sub">X (m): <span class="mono" data-role="x">—</span></div>
     <div class="sub">Y (m): <span class="mono" data-role="y">—</span></div>
     <div class="sub">Heading (rad): <span class="mono" data-role="heading">—</span></div>
@@ -159,8 +159,8 @@ function updateMotor(port, velocity, position) {
   }
 }
 
-function updateSensor(port, x, y, heading, quality, calibrating, timestamp) {
-  if (!sensorCards.has(port)) createSensorCard(port);
+function updateSensor(type, port, x, y, heading, quality, calibrating, timestamp) {
+  if (!sensorCards.has(port)) createSensorCard(type, port);
   const ui = sensorCards.get(port);
   ui.x.textContent = x !== undefined ? Number(x).toFixed(3) : '—';
   ui.y.textContent = y !== undefined ? Number(y).toFixed(3) : '—';
@@ -236,7 +236,22 @@ function updatePose(map) {
   if (!Number.isNaN(y)) pose.y = y;
   if (!Number.isNaN(r)) pose.rot = r;
   if (els.poseText) els.poseText.textContent = `x=${pose.x.toFixed(2)} m, y=${pose.y.toFixed(2)} m, rot=${pose.rot.toFixed(2)} rad`;
-  drawRobot();
+
+  const gpsPoses = [];
+  // Collect GPS poses if available
+  Object.keys(map).forEach(k => {
+    if (k.startsWith('gps/') && k.endsWith('/x')) {
+      const port = k.split('/')[1];
+      const gx = Number(map[`gps/${port}/x`]);
+      const gy = Number(map[`gps/${port}/y`]);
+      const gr = Number(map[`gps/${port}/heading`]);
+      if (!Number.isNaN(gx) && !Number.isNaN(gy) && !Number.isNaN(gr)) {
+        gpsPoses.push({ x: gx, y: gy, rot: gr });
+      }
+    }
+  });
+
+  drawRobot(gpsPoses);
 }
 
 function metersToPixels(xMeters, yMeters) {
@@ -264,7 +279,7 @@ function metersToPixels(xMeters, yMeters) {
   return { x: pxImg * scaleX + offsetX, y: pyImg * scaleY + offsetY };
 }
 
-function drawRobot() {
+function drawRobot(gpsPoses=[]) {
   const ctx = els.robotCanvas.getContext('2d'); if (!ctx || !fieldConfig || !robotConfig) return;
   const rect = els.robotCanvas.getBoundingClientRect();
   els.robotCanvas.width = rect.width * (window.devicePixelRatio || 1);
@@ -279,6 +294,8 @@ function drawRobot() {
   const rpH = metersToPixels(0, heightMeters);
   const robotPxW = Math.abs(rpW.x - rpW0.x);
   const robotPxH = Math.abs(rpH.y - rpW0.y);
+
+  ctx.save();
   // Draw robot image centered and rotated CCW
   ctx.translate(x, y);
   // Telemetry rotation is CW-positive; canvas expects CCW-positive
@@ -302,6 +319,37 @@ function drawRobot() {
     ctx.fillRect(-robotPxW/2, -robotPxH/2, robotPxW, robotPxH);
     ctx.strokeRect(-robotPxW/2, -robotPxH/2, robotPxW, robotPxH);
   }
+
+  ctx.restore();
+
+  // Draw GPS poses if any
+  gpsPoses.forEach(pose => {
+    const { x, y } = metersToPixels(pose.x, pose.y);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-pose.rot + Math.PI/2);
+    if (false&&robotImg && robotImg.complete) {
+    // Preserve aspect ratio of the robot image while fitting into robotPxW x robotPxH
+    const rW = robotImg.naturalWidth || robotImg.width;
+    const rH = robotImg.naturalHeight || robotImg.height;
+    const sx = robotPxW / rW;
+    const sy = robotPxH / rH;
+    const s = Math.min(sx, sy);
+    const drawW = rW * s;
+    const drawH = rH * s;
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(robotImg, -drawW/2, -drawH/2, drawW, drawH);
+  } else {
+    // Fallback rectangle if image not ready
+    ctx.fillStyle = 'rgba(124,148,255,0.5)';
+    ctx.strokeStyle = '#7c94ff';
+    ctx.lineWidth = 2;
+    ctx.fillRect(-robotPxW/2, -robotPxH/2, robotPxW, robotPxH);
+    ctx.strokeRect(-robotPxW/2, -robotPxH/2, robotPxW, robotPxH);
+  }
+    ctx.restore();
+  });
+
   ctx.restore();
 }
 
@@ -392,13 +440,13 @@ function handleTelemetry(map) {
       const quality = map[`gps/${port}/quality`];
       const calibrating = map[`gps/${port}/calibrating`];
       const timestamp = map[`gps/${port}/timestamp`];
-      updateSensor(port, x, y, heading, quality, calibrating, timestamp);
+      updateSensor("gps", port, x, y, heading, quality, calibrating, timestamp);
     } else if (k.startsWith('inertial/')) {
       const port = k.split('/')[1];
       const yaw = map[`inertial/${port}/yaw`];
       const calibrating = map[`inertial/${port}/calibrating`];
       const timestamp = map[`inertial/${port}/timestamp`];
-      updateSensor(port, undefined, undefined, yaw, undefined, calibrating, timestamp);
+      updateSensor("intertial", port, undefined, undefined, yaw, undefined, calibrating, timestamp);
     }
   });
 }
