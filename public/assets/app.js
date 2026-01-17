@@ -268,9 +268,11 @@ function metersToPixels(xMeters, yMeters) {
   // Pixels per meter within the working area
   const sx = workW / widthMeters;
   const sy = workH / heightMeters;
-  // Bottom-left origin: x grows right, y grows up
-  const pxImg = topLeft[0] + xMeters * sx;
-  const pyImg = bottomRight[1] - yMeters * sy;
+  // Center-origin: (0,0) at field center; +x right, +y up
+  const centerXImg = topLeft[0] + (widthMeters / 2) * sx;
+  const centerYImg = bottomRight[1] - (heightMeters / 2) * sy;
+  const pxImg = centerXImg + xMeters * sx;
+  const pyImg = centerYImg - yMeters * sy;
   // Map from image space to on-screen image rect (object-fit contain) and then to overlay canvas
   const scaleX = (imgRect.width || stageRect.width) / naturalW;
   const scaleY = (imgRect.height || stageRect.height) / naturalH;

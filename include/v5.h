@@ -86,7 +86,9 @@ namespace vex
 
     enum color
     {
-        red = 0
+        red = 0,
+        yellow = 1,
+        white = 2
     };
 
     typedef struct motor

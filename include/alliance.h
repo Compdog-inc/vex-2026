@@ -12,6 +12,7 @@ enum class Alliance
 namespace vex
 {
     Alliance getCurrentAlliance();
+    void setCurrentAlliance(Alliance alliance);
 };
 
 #endif

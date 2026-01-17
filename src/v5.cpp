@@ -342,7 +342,7 @@ bool vex::inertial::installed()
 
 double vex::inertial::yaw(rotationUnits units)
 {
-    return yawVal * (units == vex::deg ? 180.0 / M_PI : 1.0 / (2.0 * M_PI));
+    return -yawVal * (units == vex::deg ? 180.0 / M_PI : 1.0 / (2.0 * M_PI));
 }
 
 int vex::inertial::timestamp()
@@ -415,11 +415,15 @@ vex::gps::gps(int port, double ox, double oy, distanceUnits distUnits, double oh
 
 void vex::gps::setLocation(double x, double y, distanceUnits distUnits, double heading, rotationUnits rotUnits)
 {
-    rx = x = x;
-    ry = y = y;
+    x /= 1000.0;
+    y /= 1000.0;
+    rx = x;
+    ry = y;
+    this->x = x;
+    this->y = y;
     headingVal = heading / (rotUnits == vex::deg ? 180.0 / M_PI : 1.0 / (2.0 * M_PI));
-    postTelemetry("gps/" + std::to_string(port) + "/x", x);
-    postTelemetry("gps/" + std::to_string(port) + "/y", y);
+    postTelemetry("gps/" + std::to_string(port) + "/x", this->x);
+    postTelemetry("gps/" + std::to_string(port) + "/y", this->y);
     postTelemetry("gps/" + std::to_string(port) + "/heading", headingVal);
 }
 

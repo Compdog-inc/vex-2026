@@ -736,7 +736,7 @@ private:
     {
         if (gyro.installed())
         {
-            return Rotation2d{gyro.yaw(vex::rotationUnits::deg) * M_PI / 180.0};
+            return Rotation2d{-gyro.yaw(vex::rotationUnits::deg) * M_PI / 180.0};
         }
         else
         {

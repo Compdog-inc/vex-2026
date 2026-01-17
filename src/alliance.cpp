@@ -1,10 +1,13 @@
 #include "alliance.h"
 
+static Alliance currentAlliance = Alliance::Red;
+
 Alliance vex::getCurrentAlliance()
 {
-#ifndef VEX
-    return static_cast<Alliance>(getSimulationAlliance());
-#else
-    return Alliance::Red;
-#endif
+    return currentAlliance;
+}
+
+void vex::setCurrentAlliance(Alliance alliance)
+{
+    currentAlliance = alliance;
 }

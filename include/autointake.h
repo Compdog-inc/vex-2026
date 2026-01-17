@@ -1,23 +1,22 @@
-#ifndef MANUALINTAKE_H
-#define MANUALINTAKE_H
+#ifndef AUTOINTAKE_H
+#define AUTOINTAKE_H
 
 #include "vex.h"
 #include "rmath.h"
 #include "commandscheduler.h"
 #include "subsystems/intake.h"
 
-class ManualIntake : public Command
+class AutoIntake : public Command
 {
 public:
-    ManualIntake(vex::controller *gamepad, Intake *intake);
+    AutoIntake(Intake *intake);
 
     void initialize() override;
     void execute() override;
-
+    void end(bool interrupted) override;
     bool isFinished() override;
 
 private:
-    vex::controller *gamepad;
     Intake *intake;
 };
 

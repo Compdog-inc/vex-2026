@@ -1,10 +1,12 @@
 #include "vex.h"
 #include "ruckigalign.h"
+#include "alliance.h"
 #include "commandscheduler.h"
 #include "subsystems/drivetrain.h"
 #include "subsystems/intake.h"
 #include "manualdrive.h"
 #include "manualintake.h"
+#include "autointake.h"
 #include "waypointalign.h"
 
 vex::competition competition;
@@ -90,8 +92,15 @@ void panic(const char *file, int line, const char *messageFormat, ...)
   }
 }
 
-vex::inertial gyro = vex::inertial(vex::PORT7);
-vex::gps gps = vex::gps(vex::PORT20, 0.0, 0.0, vex::distanceUnits::mm, 180.0);
+const Pose2d RED_LEFT_START = Pose2d{Translation2d{-1.6096, 0.5}, Rotation2d{M_PI_2}};
+const Pose2d RED_RIGHT_START = Pose2d{Translation2d{-1.6096, -0.5}, Rotation2d{M_PI_2}};
+const Pose2d BLUE_LEFT_START = Pose2d{Translation2d{1.6096, -0.5}, Rotation2d{M_PI + M_PI_2}};
+const Pose2d BLUE_RIGHT_START = Pose2d{Translation2d{1.6096, 0.5}, Rotation2d{M_PI + M_PI_2}};
+
+vex::inertial gyro = vex::inertial(vex::PORT3);
+vex::gps gps = vex::gps(vex::PORT15, 0.0, 0.0, vex::distanceUnits::mm, 180.0);
+
+static bool isLeft = false;
 
 Drivetrain *drivetrain;
 Intake *intake;
@@ -122,18 +131,83 @@ void createSubsystems()
 }
 
 std::vector<Pose2d> waypoints = {
-    Pose2d{Translation2d{0, 1.9812}, Rotation2d{0}},
-    Pose2d{Translation2d{0, 4.826}, Rotation2d{0}},
-    Pose2d{Translation2d{-3.0988, 4.826 + 0.254 + 0.127}, Rotation2d{0}},
-    Pose2d{Translation2d{-3.0988, 6.985}, Rotation2d{0}},
-    Pose2d{Translation2d{0, 6.985}, Rotation2d{0}},
-    Pose2d{Translation2d{-3.0988, 1.9812}, Rotation2d{0}},
-    Pose2d{Translation2d{-3.0988, 4.826}, Rotation2d{0}},
+    Pose2d{Translation2d{-0.4, 0.6}, Rotation2d{M_PI_2}},
+    Pose2d{Translation2d{-0.4, -0.6}, Rotation2d{M_PI_2}},
+    Pose2d{Translation2d{0.4, 0.6}, Rotation2d{M_PI + M_PI_2}},
+    Pose2d{Translation2d{0.4, -0.6}, Rotation2d{M_PI + M_PI_2}},
 };
+
+void autonomous(void);
 
 void robotInit(void)
 {
   createSubsystems();
+
+  brain.Screen.setPenColor(vex::color::white);
+  brain.Screen.print("Select Starting Position:");
+  brain.Screen.newLine();
+  brain.Screen.print("A: Red Left");
+  brain.Screen.newLine();
+  brain.Screen.print("B: Red Right");
+  brain.Screen.newLine();
+  brain.Screen.print("X: Blue Left");
+  brain.Screen.newLine();
+  brain.Screen.print("Y: Blue Right");
+  brain.Screen.newLine();
+
+  while (true)
+  {
+
+    while (
+        !gamepad.ButtonA.pressing() &&
+        !gamepad.ButtonB.pressing() &&
+        !gamepad.ButtonX.pressing() &&
+        !gamepad.ButtonY.pressing())
+    {
+      vex::wait(10, vex::msec);
+    }
+
+    brain.Screen.setPenColor(vex::color::yellow);
+
+    if (gamepad.ButtonA.pressing())
+    {
+      drivetrain->resetPose(RED_LEFT_START);
+      brain.Screen.print("Red Left Selected");
+      vex::setCurrentAlliance(Alliance::Red);
+      isLeft = true;
+      break;
+    }
+    else if (gamepad.ButtonB.pressing())
+    {
+      drivetrain->resetPose(RED_RIGHT_START);
+      brain.Screen.print("Red Right Selected");
+      vex::setCurrentAlliance(Alliance::Red);
+      isLeft = false;
+      break;
+    }
+    else if (gamepad.ButtonX.pressing())
+    {
+      drivetrain->resetPose(BLUE_LEFT_START);
+      brain.Screen.print("Blue Left Selected");
+      vex::setCurrentAlliance(Alliance::Blue);
+      isLeft = true;
+      break;
+    }
+    else if (gamepad.ButtonY.pressing())
+    {
+      drivetrain->resetPose(BLUE_RIGHT_START);
+      brain.Screen.print("Blue Right Selected");
+      vex::setCurrentAlliance(Alliance::Blue);
+      isLeft = false;
+      break;
+    }
+    else
+    {
+      brain.Screen.print("Unknown Button");
+    }
+  }
+
+  brain.Screen.newLine();
 
   RuckigAlign::setup();
 
@@ -152,64 +226,44 @@ void robotInit(void)
     drivetrain->setRotationOrigin(Translation2d{0.0, 0.0}); });
 
   gamepad.ButtonX.pressed([]()
-                          {
-                            Command *alignCommand = WaypointAlign::alignWithCommand(
-                              {
-                                waypoints[0],
-                                waypoints[1],
-                                waypoints[2],
-                                waypoints[3],
-                                waypoints[4],
-                                waypoints[1],
-                                waypoints[6],
-                                waypoints[5],
-                                waypoints[0]
-                              },
-                                     {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0}, 
-                                     -1, 0, Commands::none(), [&](const ChassisSpeeds &speeds)
-                                                                                    { 
-                                                                                      drivetrain->drive(speeds); 
-                                                                                    }, []()
-                                                                                    {
-                                                                                      return RuckigAlign::toKinematicState(drivetrain->getPose(), drivetrain->getChassisSpeeds(), drivetrain->getChassisAcceleration());
-                                                                                      }, drivetrain);
-                            alignCommand->addRequirement(drivetrain);
-                            alignCommand->setOnHeap(true);
-                            CommandScheduler::getInstance()->schedule(alignCommand); });
+                          { autonomous(); });
 }
 
 void autonomous(void)
 {
+  AutoIntake *autoIntake = new AutoIntake(intake);
+  autoIntake->setOnHeap(true);
+
+  if (isLeft)
+  {
+    Command *alignCommand = WaypointAlign::alignWithCommand(
+        {vex::getCurrentAlliance() == Alliance::Red ? waypoints[0] : waypoints[3],
+         vex::getCurrentAlliance() == Alliance::Red ? waypoints[0] : waypoints[3]},
+        {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0},
+        -1, 0, Commands::none(), [&](const ChassisSpeeds &speeds)
+        { drivetrain->drive(speeds); }, []()
+        { return RuckigAlign::toKinematicState(drivetrain->getPose(), drivetrain->getChassisSpeeds(), drivetrain->getChassisAcceleration()); }, drivetrain);
+    alignCommand->addRequirement(drivetrain);
+    alignCommand->setOnHeap(true);
+    CommandScheduler::getInstance()->schedule(alignCommand->alongWith({autoIntake->withTimeout(2)}));
+  }
+  else
+  {
+    Command *alignCommand = WaypointAlign::alignWithCommand(
+        {vex::getCurrentAlliance() == Alliance::Red ? waypoints[1] : waypoints[2],
+         vex::getCurrentAlliance() == Alliance::Red ? waypoints[1] : waypoints[2]},
+        {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0},
+        -1, 0, Commands::none(), [&](const ChassisSpeeds &speeds)
+        { drivetrain->drive(speeds); }, []()
+        { return RuckigAlign::toKinematicState(drivetrain->getPose(), drivetrain->getChassisSpeeds(), drivetrain->getChassisAcceleration()); }, drivetrain);
+    alignCommand->addRequirement(drivetrain);
+    alignCommand->setOnHeap(true);
+    CommandScheduler::getInstance()->schedule(alignCommand->alongWith({autoIntake->withTimeout(2)}));
+  }
 }
 
 void usercontrol(void)
 {
-  vex::timer periodicTimer = vex::timer();
-
-  while (1)
-  {
-    periodicTimer.reset();
-
-    CommandScheduler::getInstance()->run();
-
-    double elapsed = periodicTimer.time(vex::timeUnits::msec);
-
-#ifndef VEX
-    postTelemetry("system/loop_time_ms", elapsed);
-#endif
-
-    if (elapsed < 10)
-    {
-      vex::wait(10 - elapsed, vex::timeUnits::msec);
-    }
-    else
-    {
-      brain.Screen.setPenColor(vex::color::red);
-      brain.Screen.print("Loop overrun: %.2f ms", elapsed);
-      brain.Screen.newLine();
-      vex::wait(1, vex::timeUnits::msec);
-    }
-  }
 }
 
 //
@@ -223,13 +277,34 @@ int main(int argc, char **argv)
 
   robotInit();
 
-#ifdef VEX
   // Prevent main from exiting with an infinite loop.
   while (true)
   {
-    vex::wait(100, vex::msec);
-  }
-#else
-  usercontrol();
+    vex::timer periodicTimer = vex::timer();
+
+    while (1)
+    {
+      periodicTimer.reset();
+
+      CommandScheduler::getInstance()->run();
+
+      double elapsed = periodicTimer.time(vex::timeUnits::msec);
+
+#ifndef VEX
+      postTelemetry("system/loop_time_ms", elapsed);
 #endif
+
+      if (elapsed < 10)
+      {
+        vex::wait(10 - elapsed, vex::timeUnits::msec);
+      }
+      else
+      {
+        brain.Screen.setPenColor(vex::color::red);
+        brain.Screen.print("Loop overrun: %.2f ms", elapsed);
+        brain.Screen.newLine();
+        vex::wait(1, vex::timeUnits::msec);
+      }
+    }
+  }
 }

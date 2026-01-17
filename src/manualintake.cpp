@@ -24,6 +24,19 @@ void ManualIntake::execute()
     {
         intake->set(IntakeState::Off);
     }
+
+    if (gamepad->ButtonR2.pressing())
+    {
+        intake->setShooter(IntakeState::Intake);
+    }
+    else if (gamepad->ButtonR1.pressing())
+    {
+        intake->setShooter(IntakeState::Reverse);
+    }
+    else
+    {
+        intake->setShooter(IntakeState::Off);
+    }
 }
 
 bool ManualIntake::isFinished()
