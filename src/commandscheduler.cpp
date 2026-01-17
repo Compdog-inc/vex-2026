@@ -122,6 +122,14 @@ void CommandScheduler::cancel(Command *command, bool interrupted)
     command->end(interrupted);
 }
 
+void CommandScheduler::cancelAll()
+{
+    for (Command *command : scheduled_commands)
+    {
+        cancel(command, true);
+    }
+}
+
 void CommandScheduler::removeEndedCommands()
 {
     for (Command *command : commands_to_remove)

@@ -68,6 +68,7 @@ public:
     void registerSubsystem(Subsystem *subsystem);
 
     void cancel(Command *command, bool interrupted);
+    void cancelAll();
     void removeEndedCommands();
 
 private:

@@ -137,6 +137,9 @@ std::vector<Pose2d> waypoints = {
     Pose2d{Translation2d{0.4, -0.6}, Rotation2d{M_PI + M_PI_2}}};
 
 void autonomous(void);
+void usercontrol(void);
+
+static ManualIntake *manualIntake = nullptr;
 
 void robotInit(void)
 {
@@ -212,20 +215,23 @@ void robotInit(void)
 
   // Commands
   ManualDrive *manualDrive = new ManualDrive(&gamepad, drivetrain);
-  ManualIntake *manualIntake = new ManualIntake(&gamepad, intake);
+  manualIntake = new ManualIntake(&gamepad, intake);
   manualDrive->setOnHeap(true);
   manualIntake->setOnHeap(true);
 
   drivetrain->setDefaultCommand(manualDrive);
   intake->setDefaultCommand(manualIntake);
 
-  gamepad.ButtonA.pressed([]()
-                          {
-    drivetrain->resetPose(Pose2d{drivetrain->getPose().translation, Rotation2d{0.0}});
-    drivetrain->setRotationOrigin(Translation2d{0.0, 0.0}); });
+  // gamepad.ButtonA.pressed([]()
+  //                         {
+  //   drivetrain->resetPose(Pose2d{drivetrain->getPose().translation, Rotation2d{0.0}});
+  //   drivetrain->setRotationOrigin(Translation2d{0.0, 0.0}); });
 
   gamepad.ButtonX.pressed([]()
                           { autonomous(); });
+
+  gamepad.ButtonA.pressed([]()
+                          { usercontrol(); });
 }
 
 void autonomous(void)
@@ -244,7 +250,7 @@ void autonomous(void)
         { return RuckigAlign::toKinematicState(drivetrain->getPose(), drivetrain->getChassisSpeeds(), drivetrain->getChassisAcceleration()); }, drivetrain);
     alignCommand->addRequirement(drivetrain);
     alignCommand->setOnHeap(true);
-    CommandScheduler::getInstance()->schedule(alignCommand->alongWith({autoIntake->withTimeout(2)}));
+    CommandScheduler::getInstance()->schedule(alignCommand->withDeadline({autoIntake->withTimeout(2)}));
   }
   else
   {
@@ -257,12 +263,17 @@ void autonomous(void)
         { return RuckigAlign::toKinematicState(drivetrain->getPose(), drivetrain->getChassisSpeeds(), drivetrain->getChassisAcceleration()); }, drivetrain);
     alignCommand->addRequirement(drivetrain);
     alignCommand->setOnHeap(true);
-    CommandScheduler::getInstance()->schedule(alignCommand->alongWith({autoIntake->withTimeout(2)}));
+    CommandScheduler::getInstance()->schedule(alignCommand->withDeadline({autoIntake->withTimeout(2)}));
   }
 }
 
 void usercontrol(void)
 {
+  if (manualIntake != nullptr)
+  {
+    // CommandScheduler::getInstance()->cancelAll();
+    CommandScheduler::getInstance()->schedule(manualIntake);
+  }
 }
 
 //

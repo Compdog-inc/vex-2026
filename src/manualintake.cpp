@@ -12,11 +12,11 @@ void ManualIntake::initialize()
 
 void ManualIntake::execute()
 {
-    if (gamepad->ButtonL2.pressing())
+    if (gamepad->ButtonL1.pressing())
     {
         intake->set(IntakeState::Intake);
     }
-    else if (gamepad->ButtonL1.pressing())
+    else if (gamepad->ButtonL2.pressing())
     {
         intake->set(IntakeState::Reverse);
     }
@@ -25,11 +25,11 @@ void ManualIntake::execute()
         intake->set(IntakeState::Off);
     }
 
-    if (gamepad->ButtonR2.pressing())
+    if (gamepad->ButtonR1.pressing())
     {
         intake->setShooter(IntakeState::Intake);
     }
-    else if (gamepad->ButtonR1.pressing())
+    else if (gamepad->ButtonR2.pressing())
     {
         intake->setShooter(IntakeState::Reverse);
     }
