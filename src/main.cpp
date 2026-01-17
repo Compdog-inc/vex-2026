@@ -98,7 +98,7 @@ const Pose2d BLUE_LEFT_START = Pose2d{Translation2d{1.6096, -0.5}, Rotation2d{M_
 const Pose2d BLUE_RIGHT_START = Pose2d{Translation2d{1.6096, 0.5}, Rotation2d{M_PI + M_PI_2}};
 
 vex::inertial gyro = vex::inertial(vex::PORT3);
-vex::gps gps = vex::gps(vex::PORT15, 0.0, 0.0, vex::distanceUnits::mm, 180.0);
+vex::gps gps = vex::gps(vex::PORT15, 0.0, 15.3, vex::distanceUnits::mm, 0.0);
 
 static bool isLeft = false;
 
@@ -134,8 +134,7 @@ std::vector<Pose2d> waypoints = {
     Pose2d{Translation2d{-0.4, 0.6}, Rotation2d{M_PI_2}},
     Pose2d{Translation2d{-0.4, -0.6}, Rotation2d{M_PI_2}},
     Pose2d{Translation2d{0.4, 0.6}, Rotation2d{M_PI + M_PI_2}},
-    Pose2d{Translation2d{0.4, -0.6}, Rotation2d{M_PI + M_PI_2}},
-};
+    Pose2d{Translation2d{0.4, -0.6}, Rotation2d{M_PI + M_PI_2}}};
 
 void autonomous(void);
 

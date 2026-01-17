@@ -4,10 +4,10 @@ Drivetrain::Drivetrain(vex::inertial &gyro, vex::gps *gps, const Pose2d &initial
                                                                                             0.1016, // Wheel diameter 101.6 mm (4 inches)
                                                                                             MAX_MODULE_SPEED,
                                                                                             {
-                                                                                                vex::motor(vex::PORT5, vex::gearSetting::ratio18_1), // Front Left
-                                                                                                vex::motor(vex::PORT6, vex::gearSetting::ratio18_1), // Front Right
-                                                                                                vex::motor(vex::PORT7, vex::gearSetting::ratio18_1), // Back Right
-                                                                                                vex::motor(vex::PORT8, vex::gearSetting::ratio18_1)  // Back Left
+                                                                                                vex::motor(vex::PORT7, vex::gearSetting::ratio18_1), // Front Left
+                                                                                                vex::motor(vex::PORT8, vex::gearSetting::ratio18_1), // Front Right
+                                                                                                vex::motor(vex::PORT5, vex::gearSetting::ratio18_1), // Back Right
+                                                                                                vex::motor(vex::PORT6, vex::gearSetting::ratio18_1)  // Back Left
                                                                                             },
                                                                                             {
                                                                                                 XDriveModule{Translation2d{-TRACK_WIDTH / 2, TRACK_LENGTH / 2}, Rotation2d{M_PI / 4}},     // Front Left
