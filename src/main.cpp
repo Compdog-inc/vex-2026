@@ -98,7 +98,7 @@ const Pose2d BLUE_LEFT_START = Pose2d{Translation2d{1.6096, -0.5}, Rotation2d{M_
 const Pose2d BLUE_RIGHT_START = Pose2d{Translation2d{1.6096, 0.5}, Rotation2d{M_PI + M_PI_2}};
 
 vex::inertial gyro = vex::inertial(vex::PORT3);
-vex::gps gps = vex::gps(vex::PORT15, 0.0, 15.3, vex::distanceUnits::mm, 0.0);
+vex::gps gps = vex::gps(vex::PORT15, -15.0, 153, vex::distanceUnits::mm, 0.0);
 
 static bool isLeft = false;
 
@@ -222,10 +222,23 @@ void robotInit(void)
   drivetrain->setDefaultCommand(manualDrive);
   intake->setDefaultCommand(manualIntake);
 
-  // gamepad.ButtonA.pressed([]()
-  //                         {
-  //   drivetrain->resetPose(Pose2d{drivetrain->getPose().translation, Rotation2d{0.0}});
-  //   drivetrain->setRotationOrigin(Translation2d{0.0, 0.0}); });
+  gamepad.ButtonY.pressed([]()
+                          {
+    drivetrain->resetPose(Pose2d{drivetrain->getPose().translation, Rotation2d{0.0}});
+    drivetrain->setRotationOrigin(Translation2d{0.0, 0.0}); });
+
+  gamepad.ButtonB.pressed([]()
+                          {
+    Command *alignCommand = WaypointAlign::alignWithCommand(
+        {RED_LEFT_START,
+         RED_LEFT_START},
+        {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0},
+        -1, 0, Commands::none(), [&](const ChassisSpeeds &speeds)
+        { drivetrain->drive(speeds); }, []()
+        { return RuckigAlign::toKinematicState(drivetrain->getPose(), drivetrain->getChassisSpeeds(), drivetrain->getChassisAcceleration()); }, drivetrain);
+    alignCommand->addRequirement(drivetrain);
+    alignCommand->setOnHeap(true);
+    CommandScheduler::getInstance()->schedule(alignCommand); });
 
   gamepad.ButtonX.pressed([]()
                           { autonomous(); });

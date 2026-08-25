@@ -134,7 +134,7 @@ public:
     static constexpr double CURRENT_STATE_MULTIPLIER =
         0.5; // scales down the Ruckig current velocity/accel initialization for faster deceleration
 
-    static constexpr double MAX_VELOCITY = 1.064;           // m/s
+    static constexpr double MAX_VELOCITY = 1.41;            // m/s
     static constexpr double MAX_ANGULAR_VELOCITY = 4.0;     // rad/s
     static constexpr double MAX_ACCELERATION = 1.5;         // m/s^2
     static constexpr double MAX_ANGULAR_ACCELERATION = 7.0; // rad/s^2
