@@ -1,6 +1,4 @@
-# 2025_Control — CMake Build
-
-This project has been converted from a Makefile to modern CMake while preserving the VEX V5 SDK toolchain configuration.
+# 2026-Control
 
 ## Prerequisites
 
@@ -25,6 +23,4 @@ Artifacts are mirrored to `build/` as:
 
 ## Notes
 
-- Standards: C gnu99 and C++ gnu++11 (matching original). 
 - If your SDK path differs, pass `-DVEX_SDK_PATH=/path/to/sdk` to `cmake`.
-- The legacy `build/` layout is preserved for compatibility with existing workflows.
